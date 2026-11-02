@@ -27,11 +27,14 @@ jobs:
           go-version: ${{ matrix.go }}
           cache: true
 
+      # The formatting gate runs on the stable toolchain only, so that a
+      # gofmt change in a newer release cannot fail the minimum-version job.
       - name: Verify formatting
+        if: matrix.go == 'stable'
         run: |
           unformatted="$(gofmt -l .)"
           if [ -n "$unformatted" ]; then
-            echo "File non formattati:"
+            echo "Unformatted files:"
             echo "$unformatted"
             exit 1
           fi
@@ -50,3 +53,4 @@ jobs:
 
       - name: Coverage summary
         run: go tool cover -func=coverage.out | tail -n 1
+

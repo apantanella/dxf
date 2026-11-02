@@ -285,6 +285,8 @@ type Block struct {
 	Flags     int
 	Entities  []Entity
 	Raw       []Group
+	// EndHandle is the handle of the ENDBLK record, or empty when it has none.
+	EndHandle string
 }
 
 // Layer returns the layer of the block definition.

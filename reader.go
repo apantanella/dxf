@@ -349,6 +349,18 @@ func (p *parser) readBlock() (*Block, error) {
 		return nil, err
 	}
 	block.Entities = entities
+	// ENDBLK may carry a handle; any other group is still a syntax error.
+	end, err := p.readGroupList()
+	if err != nil {
+		return nil, err
+	}
+	es := newGroupSet(end)
+	if v, ok := es.str(groupHandle); ok {
+		block.EndHandle = v
+	}
+	if rest := es.leftovers(); len(rest) > 0 {
+		return nil, p.syntax(rest[0], "expected group code 0 in the BLOCKS section")
+	}
 	return block, nil
 }
 
@@ -453,22 +465,24 @@ func (p *parser) readPolyline(groups []Group) (Entity, error) {
 			vertices = append(vertices, vertex)
 		case "SEQEND":
 			p.gr.next()
-			if _, err := p.readGroupList(); err != nil {
+			seqend, err := p.readGroupList()
+			if err != nil {
 				return nil, err
 			}
-			return decodePolyline("POLYLINE", groups, vertices)
+			return decodePolyline("POLYLINE", groups, vertices, seqendHandle(seqend))
 		default:
 			if !p.cfg.lenient {
 				return nil, &SyntaxError{Line: p.gr.lastLine, Section: p.section, Entity: "POLYLINE", Reason: "POLYLINE without SEQEND"}
 			}
 			p.addDiagnostic(SeverityWarning, p.gr.lastLine, p.section, "POLYLINE", "POLYLINE without SEQEND")
-			return decodePolyline("POLYLINE", groups, vertices)
+			return decodePolyline("POLYLINE", groups, vertices, "")
 		}
 	}
 }
 
 func (p *parser) readInsert(groups []Group) (Entity, error) {
 	var attributes []Attribute
+	var seqend string
 	for {
 		grp, ok, err := p.gr.peek()
 		if err != nil {
@@ -503,9 +517,11 @@ func (p *parser) readInsert(groups []Group) (Entity, error) {
 			p.addDiagnostic(SeverityWarning, p.gr.lastLine, p.section, "INSERT", "INSERT with ATTRIB but without SEQEND")
 		} else {
 			p.gr.next()
-			if _, err := p.readGroupList(); err != nil {
+			end, err := p.readGroupList()
+			if err != nil {
 				return nil, err
 			}
+			seqend = seqendHandle(end)
 		}
 	}
 	gs := newGroupSet(groups)
@@ -513,15 +529,29 @@ func (p *parser) readInsert(groups []Group) (Entity, error) {
 	if err != nil {
 		return nil, err
 	}
-	return decodeInsert(gs, common, attributes)
+	entity, err := decodeInsert(gs, common, attributes)
+	if err != nil {
+		return nil, err
+	}
+	entity.(*Insert).SeqendHandle = seqend
+	return entity, nil
+}
+
+// seqendHandle returns the handle (group code 5) of a SEQEND record. The other
+// groups of SEQEND carry no data and are dropped, as before.
+func seqendHandle(groups []Group) string {
+	if v, ok := rawValue(groups, groupHandle); ok {
+		return v
+	}
+	return ""
 }
 
 func (p *parser) finish() (*Document, error) {
 	if !p.sawSection {
 		return nil, ErrNotDXF
 	}
-	if n := p.gr.nonASCII; n > 0 {
-		p.addDiagnostic(SeverityWarning, p.gr.firstNonASCII, "", "", fmt.Sprintf(
+	if n, first := p.gr.nonASCII(); n > 0 {
+		p.addDiagnostic(SeverityWarning, first, "", "", fmt.Sprintf(
 			"%d group values contain non-ASCII bytes: R12 text depends on the code page, the bytes are preserved unchanged", n))
 	}
 	if !p.sawEOF {
@@ -549,6 +579,12 @@ func (p *parser) finish() (*Document, error) {
 		} else {
 			return nil, &VersionError{Found: version}
 		}
+	}
+	for _, d := range p.doc.ValidateHandles() {
+		if d.Severity == SeverityError && !p.cfg.lenient {
+			return nil, &ValidationError{Entity: d.Entity, Reason: d.Message}
+		}
+		p.doc.Diagnostics = append(p.doc.Diagnostics, d)
 	}
 	return p.doc, nil
 }

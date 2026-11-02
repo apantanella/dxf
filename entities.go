@@ -61,11 +61,19 @@ type Entity interface {
 
 // EntityCommon holds the properties shared by almost every entity.
 type EntityCommon struct {
-	LayerName    string
-	Linetype     string
-	Color        int
-	HasColor     bool
-	Handle       string
+	LayerName string
+	Linetype  string
+	Color     int
+	HasColor  bool
+	// Handle is the text of group code 5, exactly as read (case and leading
+	// zeros included). It is empty when the entity has no handle. Use
+	// HandleValue and SetHandle to work with it as a Handle.
+	Handle string
+	// Owner is the handle of the owning object (group code 330); the zero value
+	// means no owner. DXF R12 has no owner pointers: the R12 reader does not
+	// fill Owner (a 330 group stays in Raw and is written back unchanged) and
+	// the R12 writer never writes it. It is reserved for later DXF versions.
+	Owner        Handle
 	Invisible    bool
 	Thickness    float64
 	Extrusion    Point3D
@@ -163,11 +171,14 @@ type Vertex struct {
 // Polyline is a POLYLINE entity with its VERTEX records.
 type Polyline struct {
 	EntityCommon
-	Flags      int
-	Elevation  Point3D
-	StartWidth float64
-	EndWidth   float64
-	Vertices   []Vertex
+	// SeqendHandle is the handle of the SEQEND record that closes the
+	// polyline, or empty when it has none.
+	SeqendHandle string
+	Flags        int
+	Elevation    Point3D
+	StartWidth   float64
+	EndWidth     float64
+	Vertices     []Vertex
 }
 
 // Type returns the DXF type name.
@@ -292,6 +303,9 @@ type Insert struct {
 	ColumnSpacing float64
 	RowSpacing    float64
 	Attributes    []Attribute
+	// SeqendHandle is the handle of the SEQEND record that follows the
+	// attributes, or empty when it has none.
+	SeqendHandle string
 }
 
 // NewInsert returns an INSERT with unit scale factors.
@@ -737,13 +751,13 @@ func decodeInsert(gs *groupSet, common EntityCommon, attributes []Attribute) (En
 	return ent, nil
 }
 
-func decodePolyline(_ string, groups []Group, vertices []Vertex) (Entity, error) {
+func decodePolyline(_ string, groups []Group, vertices []Vertex, seqendHandle string) (Entity, error) {
 	gs := newGroupSet(groups)
 	common, err := gs.common()
 	if err != nil {
 		return nil, err
 	}
-	ent := &Polyline{EntityCommon: common, Vertices: vertices}
+	ent := &Polyline{EntityCommon: common, Vertices: vertices, SeqendHandle: seqendHandle}
 	if _, _, err := gs.int(groupVerticesFollow); err != nil {
 		return nil, err
 	}

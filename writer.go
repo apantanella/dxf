@@ -1,13 +1,14 @@
 package dxf
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"math"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/apantanella/dxf/tags"
 )
 
 // EncodeOption configures Encode.
@@ -44,16 +45,16 @@ func Encode(w io.Writer, doc *Document, opts ...EncodeOption) error {
 	if err := validateDocument(doc); err != nil {
 		return err
 	}
-	ew := &entityWriter{w: bufio.NewWriter(w), cfg: cfg}
+	ew := &entityWriter{tw: tags.NewWriter(w), cfg: cfg}
 	ew.writeDocument(doc)
-	if err := ew.w.Flush(); err != nil {
-		return err
+	if ew.err != nil {
+		return ew.err
 	}
-	return ew.err
+	return ew.tw.Flush()
 }
 
 type entityWriter struct {
-	w              *bufio.Writer
+	tw             *tags.Writer
 	cfg            encodeConfig
 	err            error
 	handle         uint64
@@ -64,7 +65,7 @@ func (ew *entityWriter) group(code int, value string) {
 	if ew.err != nil {
 		return
 	}
-	if _, err := fmt.Fprintf(ew.w, "%d\n%s\n", code, value); err != nil {
+	if err := ew.tw.Write(Group{Code: code, Value: value}); err != nil {
 		ew.err = err
 	}
 }
@@ -239,6 +240,9 @@ func (ew *entityWriter) writeBlocks(doc *Document) {
 			ew.writeEntity(entity)
 		}
 		ew.group(groupType, "ENDBLK")
+		if block.EndHandle != "" {
+			ew.group(groupHandle, block.EndHandle)
+		}
 	}
 	ew.group(groupType, "ENDSEC")
 }
@@ -424,10 +428,7 @@ func (ew *entityWriter) writePolyline(entity *Polyline) {
 			ew.group(group.Code, group.Value)
 		}
 	}
-	ew.group(groupType, "SEQEND")
-	if ew.handlesEnabled {
-		ew.group(groupHandle, ew.nextHandle())
-	}
+	ew.writeSeqend(entity.SeqendHandle)
 }
 
 func (ew *entityWriter) writeInsert(entity *Insert) {
@@ -467,10 +468,17 @@ func (ew *entityWriter) writeInsert(entity *Insert) {
 		ew.writeAttribute(&entity.Attributes[i])
 	}
 	if len(entity.Attributes) > 0 {
-		ew.group(groupType, "SEQEND")
-		if ew.handlesEnabled {
-			ew.group(groupHandle, ew.nextHandle())
-		}
+		ew.writeSeqend(entity.SeqendHandle)
+	}
+}
+
+// writeSeqend writes a SEQEND record, keeping its handle or assigning a new one.
+func (ew *entityWriter) writeSeqend(handle string) {
+	ew.group(groupType, "SEQEND")
+	if handle != "" {
+		ew.group(groupHandle, handle)
+	} else if ew.handlesEnabled {
+		ew.group(groupHandle, ew.nextHandle())
 	}
 }
 
@@ -549,6 +557,23 @@ func validateDocument(doc *Document) error {
 			if err := validateEntity(entity, blocks); err != nil {
 				return err
 			}
+		}
+	}
+	return checkHandles(doc)
+}
+
+// checkHandles rejects a document that cannot be written without corrupting
+// it: a handle used twice, or no room left above the highest handle for the
+// handles the writer must assign.
+func checkHandles(doc *Document) error {
+	for _, d := range doc.ValidateHandles() {
+		if d.Severity == SeverityError {
+			return &ValidationError{Entity: d.Entity, Reason: d.Message}
+		}
+	}
+	if documentUsesHandles(doc) {
+		if missing := uint64(countMissingHandles(doc)); maxHandle(doc) > math.MaxUint64-missing-1 {
+			return &ValidationError{Reason: "handle space exhausted: cannot assign handles above the highest one in use"}
 		}
 	}
 	return nil
@@ -725,12 +750,18 @@ func handlesIn(entities []Entity) bool {
 		}
 		switch typed := entity.(type) {
 		case *Polyline:
+			if typed.SeqendHandle != "" {
+				return true
+			}
 			for _, vertex := range typed.Vertices {
 				if vertex.Handle != "" {
 					return true
 				}
 			}
 		case *Insert:
+			if typed.SeqendHandle != "" {
+				return true
+			}
 			for _, attribute := range typed.Attributes {
 				if attribute.Handle != "" {
 					return true
@@ -741,59 +772,17 @@ func handlesIn(entities []Entity) bool {
 	return false
 }
 
+// maxHandle returns the highest handle in use anywhere in the document: object
+// handles and handles inside preserved Raw groups and unknown sections.
 func maxHandle(doc *Document) uint64 {
 	var max uint64
-	visit := func(handle string) {
-		value, err := parseHandle(handle)
-		if err == nil && value > max {
+	doc.walkHandles(func(r handleRef) bool {
+		if value, err := parseHandle(r.value); err == nil && value > max {
 			max = value
 		}
-	}
-	walk := func(entities []Entity) {
-		for _, entity := range entities {
-			if entity == nil {
-				continue
-			}
-			if common := entity.Common(); common != nil {
-				visit(common.Handle)
-			}
-			switch typed := entity.(type) {
-			case *Polyline:
-				for _, vertex := range typed.Vertices {
-					visit(vertex.Handle)
-				}
-			case *Insert:
-				for _, attribute := range typed.Attributes {
-					visit(attribute.Handle)
-				}
-			}
-		}
-	}
-	walk(doc.Entities)
-	for _, table := range doc.Tables.Items {
-		if table == nil {
-			continue
-		}
-		visitGroups(table.Raw, visit)
-		for _, record := range table.Records {
-			visitGroups(record.Groups, visit)
-		}
-	}
-	for _, block := range doc.Blocks {
-		if block != nil {
-			visitGroups(block.Raw, visit)
-			walk(block.Entities)
-		}
-	}
+		return false
+	})
 	return max
-}
-
-func visitGroups(groups []Group, visit func(string)) {
-	for _, group := range groups {
-		if group.Code == groupHandle {
-			visit(group.Value)
-		}
-	}
 }
 
 func countMissingHandles(doc *Document) int {
@@ -813,14 +802,16 @@ func countMissingHandles(doc *Document) int {
 						count++
 					}
 				}
-				count++ // SEQEND
+				if typed.SeqendHandle == "" {
+					count++ // SEQEND
+				}
 			case *Insert:
 				for _, attribute := range typed.Attributes {
 					if attribute.Handle == "" {
 						count++
 					}
 				}
-				if len(typed.Attributes) > 0 {
+				if len(typed.Attributes) > 0 && typed.SeqendHandle == "" {
 					count++ // SEQEND
 				}
 			}

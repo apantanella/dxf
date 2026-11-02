@@ -6,6 +6,17 @@ versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### F1 (in progress)
+
+- New package `tags`: `Tag`, `Reader`, `Writer`, `Kind`, character encodings
+  (CP1252/Latin-1, UTF-8, `\U+XXXX` escapes). `dxf.Group` is now an alias of
+  `tags.Tag`; `SyntaxError`, `LimitError`, `ErrSyntax` and `ErrLimit` are aliases
+  of the `tags` types.
+- Handles: `Handle`, `Lookup`, `HandleIndex`, `ValidateHandles`, `Owner`,
+  `SeqendHandle`, `EndHandle`. Decode and Encode reject duplicate handles.
+- ENDBLK and SEQEND handles are kept, so a written file reads back identically.
+- ADR 0001-0008 in `docs/adr` and the R2013 notes in `docs/dxf-r2013.md`.
+
 ### Added
 
 - Go module `github.com/apantanella/dxf` with Go 1.23 as the minimum version.

@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/apantanella/dxf/tags"
 )
 
 // Sentinel errors returned by the package. Test them with errors.Is.
@@ -15,10 +17,10 @@ var (
 	ErrUnsupportedVersion = errors.New("dxf: unsupported DXF version")
 
 	// ErrSyntax reports a malformed group code/value pair or section structure.
-	ErrSyntax = errors.New("dxf: syntax error")
+	ErrSyntax = tags.ErrSyntax
 
 	// ErrLimit reports that a configured reading limit was exceeded.
-	ErrLimit = errors.New("dxf: limit exceeded")
+	ErrLimit = tags.ErrLimit
 
 	// ErrValidation reports a document that cannot be written.
 	ErrValidation = errors.New("dxf: invalid document")
@@ -75,56 +77,13 @@ func (d Diagnostic) String() string {
 	return b.String()
 }
 
-// SyntaxError describes a malformed group code/value pair or record.
-type SyntaxError struct {
-	Line    int
-	Section string
-	Entity  string
-	Code    int
-	Value   string
-	Reason  string
-}
+// SyntaxError describes a malformed group code/value pair or record. It is
+// defined in package tags, which reads the stream.
+type SyntaxError = tags.SyntaxError
 
-// Error implements the error interface.
-func (e *SyntaxError) Error() string {
-	var b strings.Builder
-	b.WriteString("dxf: ")
-	if e.Line > 0 {
-		fmt.Fprintf(&b, "line %d: ", e.Line)
-	}
-	if e.Section != "" {
-		fmt.Fprintf(&b, "section %s: ", e.Section)
-	}
-	if e.Entity != "" {
-		fmt.Fprintf(&b, "entity %s: ", e.Entity)
-	}
-	if e.Value != "" {
-		fmt.Fprintf(&b, "group code %d %q: ", e.Code, e.Value)
-	}
-	b.WriteString(e.Reason)
-	return b.String()
-}
-
-// Unwrap returns ErrSyntax.
-func (e *SyntaxError) Unwrap() error { return ErrSyntax }
-
-// LimitError reports that a reading limit was exceeded.
-type LimitError struct {
-	Kind  string
-	Limit int
-	Line  int
-}
-
-// Error implements the error interface.
-func (e *LimitError) Error() string {
-	if e.Line > 0 {
-		return fmt.Sprintf("dxf: line %d: limit exceeded for %s: maximum %d", e.Line, e.Kind, e.Limit)
-	}
-	return fmt.Sprintf("dxf: limit exceeded for %s: maximum %d", e.Kind, e.Limit)
-}
-
-// Unwrap returns ErrLimit.
-func (e *LimitError) Unwrap() error { return ErrLimit }
+// LimitError reports that a reading limit was exceeded. It is defined in
+// package tags.
+type LimitError = tags.LimitError
 
 // VersionError reports a $ACADVER value different from AC1009.
 type VersionError struct {

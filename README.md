@@ -107,6 +107,36 @@ Run them with:
 go test -run=XXX -bench=. -benchmem .
 ```
 
+## Diagnostic CLI
+
+`dxfinspect` prints a summary of one or more DXF R12 files: version, blocks,
+layers, entity counts per type and diagnostics.
+
+```powershell
+go run ./cmd/dxfinspect testdata/structural-frame.dxf
+go run ./cmd/dxfinspect -lenient drawing.dxf
+```
+
+Example output:
+
+```text
+testdata/structural-frame.dxf
+  version: AC1009
+  blocks: 0
+  layers: 1
+  entities: 6
+    LINE       3
+    POINT      1
+    POLYLINE   1
+    TEXT       1
+```
+
+Install it with:
+
+```bash
+go install github.com/apantanella/dxf/cmd/dxfinspect@latest
+```
+
 ## Documentation
 
 | Document | Content |

@@ -49,6 +49,8 @@ versioning follows [Semantic Versioning](https://semver.org/).
   (28.1 MB/s), encode ~79 ms, round-trip ~271 ms.
 - Integration tests behind the `integration` build tag, covering the file system
   path and the fixtures on disk, run by CI.
+- `dxfinspect` command that prints the version, blocks, layers, entity counts per
+  type and diagnostics of one or more DXF files, with a `-lenient` mode.
 
 ### Changed
 

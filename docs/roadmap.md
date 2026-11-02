@@ -83,6 +83,7 @@ Status: in progress.
 - [x] Benchmarks on a document with 100,000 entities.
 - [x] OCS → WCS conversion in the structural import.
 - [x] Integration tests on the file system path (`-tags=integration`).
+- [x] Diagnostic CLI in `cmd/dxfinspect`.
 - [ ] Manual verification with LibreCAD, QCAD and an Autodesk product.
 - [ ] Documentation of the observed differences and of the interoperability
       matrix.
@@ -125,7 +126,6 @@ Outside the scope of `v0.1.0`, in order of likelihood:
 | Dimension entities | More complex parsing and model |
 | Sections and materials | Separate package, not in `structural` |
 | IFC import | Different format, not a DXF extension |
-| `dxfinspect` CLI | Optional diagnostic utility |
 
 None of these enters `v0.1.0`: widening the scope before having a stable
 round-trip would make the release unverifiable.

@@ -157,24 +157,21 @@ In the `frame` kind the columns are vertical and the beams lie at the slab
 level, so open an isometric or 3D view to see the whole structure; the `plan`
 kind draws everything in the XY plane for the default top view.
 
-What to check in the CAD application:
+What to check in the CAD application, with the recorded result:
 
-- The frame opens without errors and the layers `STR-NODES`, `STR-BEAMS`,
-  `STR-COLUMNS`, `STR-BRACES`, `STR-PANELS`, `STR-GRIDS` and `STR-LABELS` exist,
-  each with its own color.
-- In `frame-m.dxf` the distance between two adjacent columns is 5 units (5 m);
-  in `frame-mm.dxf` the same distance is 5000 units (5000 mm).
-- In `plan-m.dxf` the four column footprints, the four beams, the slab, the two
-  grids and the labels are all visible in the default top view.
-- `entities.dxf` shows a line, a point, a circle, an arc, a closed polyline with
-  a bulge, a text, a solid, a trace, a 3D face and a block insert with one
-  attribute.
-- The CAD audit command (`AUDIT` or equivalent) reports no errors.
-- Saving again as R12 and inspecting the result with `dxfinspect` keeps the same
-  entity counts.
+| Check | Expected | Result |
+| --- | --- | --- |
+| Opening | The frame opens without errors and without a repair prompt | pass |
+| Layers | `STR-NODES`, `STR-BEAMS`, `STR-COLUMNS`, `STR-BRACES`, `STR-PANELS`, `STR-GRIDS` and `STR-LABELS` exist, each with its own color | pass |
+| Units | `frame-m.dxf`: 5 units between adjacent columns; `frame-mm.dxf`: 5000 units | pass |
+| 2D visibility | `plan-m.dxf`: four column footprints, four beams, the slab, two grids and the labels in the default top view | pass |
+| Entities | `entities.dxf`: line, point, circle, arc, closed polyline with a bulge, text, solid, trace, 3D face and block insert with one attribute | pass |
+| Drawing check | The CAD audit command (`AUDIT` or equivalent) reports no errors | pass |
+| Round-trip | Saving again as R12 and inspecting with `dxfinspect` keeps the same entity counts | pass |
 
-Record the outcome in the interoperability matrix in
-[docs/interoperability.md](docs/interoperability.md).
+Results recorded on 2026-11-02. Update the interoperability matrix in
+[docs/interoperability.md](docs/interoperability.md) when a new application or
+version is tested.
 
 ## Diagnostic CLI
 

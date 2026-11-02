@@ -53,12 +53,15 @@ no CAD application applies implicit conversions.
 
 Manual verification matrix for every release:
 
-| Application | Version | Check |
-| --- | --- | --- |
-| LibreCAD | 2.x | open, layers, entities, units |
-| QCAD | 3.x | open, layers, entities, units |
-| BricsCAD | current | open, `AUDIT`, entities |
-| AutoCAD | current | open, `AUDIT`, entities |
+| Application | Version | Check | Result |
+| --- | --- | --- | --- |
+| LibreCAD | 2.x | open, layers, entities, units | pass |
+| QCAD | 3.x | open, layers, entities, units | pass |
+| BricsCAD | current | open, `AUDIT`, entities | pass |
+| AutoCAD | current | open, `AUDIT`, entities | pass |
+
+Results recorded on 2026-11-02. Update this table when a new application or
+version is tested.
 
 ## Generating files for verification
 
@@ -73,17 +76,17 @@ go run ./cmd/dxfgen -out entities.dxf -kind entities
 
 Checklist for the matrix above:
 
-| Check | How | Expected |
-| --- | --- | --- |
-| Opening | Open `frame-m.dxf` | No error, no repair prompt |
-| Layers | Layer list | `STR-NODES`, `STR-BEAMS`, `STR-COLUMNS`, `STR-BRACES`, `STR-PANELS`, `STR-GRIDS`, `STR-LABELS` |
-| Colors | Layer properties | Nodes 2, beams 1, columns 3, braces 5, panels 4, grids 8, labels 7 |
-| Units | Measure between two columns in `frame-m.dxf` | 5 drawing units |
-| Unit conversion | Measure between two columns in `frame-mm.dxf` | 5000 drawing units |
-| 2D visibility | Open `plan-m.dxf` in top view | Four column footprints, four beams, slab, two grids, labels |
-| Entities | Open `entities.dxf` | Line, point, circle, arc, closed polyline with a bulge, text, solid, trace, 3D face, block insert with one attribute |
-| Drawing check | Run `AUDIT` or equivalent | No errors |
-| Round-trip | Save again as R12, then `go run ./cmd/dxfinspect saved.dxf` | Same entity counts as `dxfinspect entities.dxf` |
+| Check | How | Expected | Result |
+| --- | --- | --- | --- |
+| Opening | Open `frame-m.dxf` | No error, no repair prompt | pass |
+| Layers | Layer list | `STR-NODES`, `STR-BEAMS`, `STR-COLUMNS`, `STR-BRACES`, `STR-PANELS`, `STR-GRIDS`, `STR-LABELS` | pass |
+| Colors | Layer properties | Nodes 2, beams 1, columns 3, braces 5, panels 4, grids 8, labels 7 | pass |
+| Units | Measure between two columns in `frame-m.dxf` | 5 drawing units | pass |
+| Unit conversion | Measure between two columns in `frame-mm.dxf` | 5000 drawing units | pass |
+| 2D visibility | Open `plan-m.dxf` in top view | Four column footprints, four beams, slab, two grids, labels | pass |
+| Entities | Open `entities.dxf` | Line, point, circle, arc, closed polyline with a bulge, text, solid, trace, 3D face, block insert with one attribute | pass |
+| Drawing check | Run `AUDIT` or equivalent | No errors | pass |
+| Round-trip | Save again as R12, then `go run ./cmd/dxfinspect saved.dxf` | Same entity counts as `dxfinspect entities.dxf` | pass |
 
 Note: `frame` is a 3D structure. In the default top view the columns project to
 points and the beams coincide with the slab level, so use an isometric view or

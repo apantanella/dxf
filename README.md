@@ -1,12 +1,15 @@
 # dxf
 
-Go library for reading and writing DXF R12 ASCII files, with a conversion layer
-for structural models.
+Go library for reading and writing DXF ASCII files (R12, and R2000 to R2018),
+with a conversion layer for structural models.
 
-Status: **the R12 codec and the basic structural conversion are implemented**.
-The core package (`dxf`) reads and writes DXF R12 ASCII; the `structural`
-package imports and exports nodes, members, panels and grids. See
-[docs/roadmap.md](docs/roadmap.md) for the remaining phases.
+Status: **the R12 codec and the basic structural conversion are implemented,
+and the R2013 core (phase 7, "F1") is implemented except for the hands-on check
+of the written files in a CAD application**. The core package (`dxf`) reads DXF
+R12 to R2018 ASCII and writes R12 and R2000 to R2018; the `tags` package reads
+and writes the group code stream; the `structural` package imports and exports
+nodes, members, panels and grids. See [docs/roadmap.md](docs/roadmap.md) for the
+remaining phases.
 
 ## Scope
 
@@ -23,12 +26,31 @@ The first release (`v0.1.0`) supports:
 
 Out of scope for the first release:
 
-- Binary DXF and versions after R12.
+- Binary DXF (rejected with `ErrNotDXF`, see ADR 0008 in `docs/adr`).
+- Writing R13 and R14. Versions after R12 are covered by the F1 section below.
 - `LWPOLYLINE`, `SPLINE`, `ELLIPSE`, `MTEXT` and other entities that R12 does
   not provide.
 - A structural calculation model: materials, sections, supports, loads,
   combinations and code checks.
 - Automatic inference of structural semantics from geometry alone.
+
+## F1: R2013 core (unreleased)
+
+- Reads R12 and R2000 to R2018 (R13 and R14 on a best-effort basis); writes R12
+  and R2000 to R2018 with `WithVersion` or `Document.Version`. One `Document`
+  type serves every version.
+- Handles and owners (`Handle`, `Document.Lookup`, `ValidateHandles`), subclass
+  markers, `CLASSES` and `OBJECTS` (`Dictionary`, `Layout`, `Placeholder`,
+  `RawObject`), typed tables (`Tables.Layer`, `Linetype`, `TextStyle`,
+  `BlockRecords`).
+- Content the library does not interpret is kept with all its groups
+  (`RawEntity`, `RawObject`) and written back unchanged.
+- R12 writing is unchanged from F0. `NewDocument()` still returns an R12
+  document. Migration notes (Italian): [docs/migrazione-f1.md](docs/migrazione-f1.md).
+- Only R2013 is based on reference files opened in ZWCAD 2023 and CadCraft
+  0.16.0 (T1). The other written versions are checked with ezdxf only, and the
+  hands-on check of the written files (G1, `testdata/g1/README.md`) is not done
+  yet. See [docs/interoperability.md](docs/interoperability.md).
 
 ## Requirements
 
@@ -51,6 +73,30 @@ doc, err := dxf.Decode(r) // r is an io.Reader
 err = dxf.Encode(w, doc) // w is an io.Writer
 ```
 
+Writing R2013, reading it back and converting to another version:
+
+```go
+doc := dxf.NewDocumentVersion(dxf.VersionR2013)
+doc.Tables.EnsureLayer("STR-BEAMS", 3, "CONTINUOUS")
+doc.Entities = append(doc.Entities, &dxf.Line{
+    EntityCommon: dxf.EntityCommon{LayerName: "STR-BEAMS"},
+    End:          dxf.Point3D{X: 5000},
+})
+err = dxf.Encode(w, doc) // AC1027, CR LF, handles, subclass markers
+
+back, err := dxf.Decode(r, dxf.WithLenient())
+// back.Version == dxf.VersionR2013; back.Classes and back.Objects are filled.
+
+// Same document written as R2018; the document is not modified.
+err = dxf.Encode(w2, back, dxf.WithVersion(dxf.VersionR2018))
+```
+
+`Encode` adds the missing layers, tables, dictionaries and layouts, assigns the
+handles that are missing and recomputes `$HANDSEED`. A document that holds R13+
+content cannot be written as R12: `Encode` returns an error that wraps
+`ErrValidation`. A runnable example is `ExampleEncode_r2013` in
+`example_test.go`.
+
 Document helpers:
 
 ```go
@@ -71,8 +117,10 @@ when a layer or an entity refers to them. A document that refers to any other
 linetype must define it in its `LTYPE` table, otherwise `Encode` fails with an
 error that wraps `ErrValidation`.
 
-`Decode` records one warning when a file contains non-ASCII bytes: R12 text
-depends on the code page, and the bytes are preserved unchanged.
+`Decode` records one warning when a file contains non-ASCII bytes: text before
+R2007 depends on the code page, and the bytes are preserved unchanged. `Encode`
+converts text to the `$DWGCODEPAGE` code page (`ANSI_1252` or `ISO8859-1`) when
+it writes R2000 to R2004, and writes UTF-8 from R2007.
 
 Reading example:
 
@@ -113,6 +161,10 @@ log.Printf("nodes: %d, members: %d, skipped: %d",
   `structural.Mapping.Unit` must be declared by the application.
 - Structural metadata uses layers and blocks, not XDATA.
 - Generated files have not yet been verified with external CAD applications.
+  For the F1 writer this is the G1 check, still to be done.
+- Binary DXF is not supported. R13 and R14 are read but not written.
+- Mesh `POLYLINE` (flags 16 and 64) is written only when it was read from an
+  R13+ file.
 
 ## Performance
 
@@ -132,8 +184,9 @@ go test -run=XXX -bench=. -benchmem .
 
 ## Generating verification files
 
-`dxfgen` writes DXF R12 files used to check the library against a CAD
-application. The frame is defined in meters and exported in the requested unit,
+`dxfgen` writes DXF R12 files (the version of `dxf.NewDocument`) used to check
+the library against a CAD application. The R2013 files to open by hand are in
+`testdata/g1/`. The frame is defined in meters and exported in the requested unit,
 so the same geometry exercises the unit conversion.
 
 ```powershell
@@ -175,8 +228,9 @@ version is tested.
 
 ## Diagnostic CLI
 
-`dxfinspect` prints a summary of one or more DXF R12 files: version, blocks,
-layers, entity counts per type and diagnostics.
+`dxfinspect` prints a summary of one or more DXF files (R12 to R2018): version,
+blocks, layers, entity counts per type, the number of `CLASSES` and `OBJECTS`
+records (R13 and later) and diagnostics.
 
 ```powershell
 go run ./cmd/dxfinspect testdata/structural-frame.dxf
@@ -197,6 +251,8 @@ testdata/structural-frame.dxf
     TEXT       1
 ```
 
+For an R2013 file the output also shows `classes: N` and `objects: N`.
+
 Install both commands with:
 
 ```bash
@@ -213,7 +269,12 @@ go install github.com/apantanella/dxf/cmd/dxfgen@latest
 | [docs/structural-model.md](docs/structural-model.md) | Structural model and mapping |
 | [docs/interoperability.md](docs/interoperability.md) | Units, verification and CAD compatibility |
 | [docs/roadmap.md](docs/roadmap.md) | Phases, acceptance criteria and future work |
-| [docs/decisions](docs/decisions) | Architecture decision records |
+| [docs/decisions](docs/decisions) | Architecture decision records (phases 0-6) |
+| [docs/adr](docs/adr/README.md) | Architecture decision records of F1 (R2013 core) |
+| [docs/dxf-r2013.md](docs/dxf-r2013.md) | R2013 file written by the library (Italian) |
+| [docs/oracle.md](docs/oracle.md) | ezdxf verification tools (Italian) |
+| [docs/f1-task-t3-t9.md](docs/f1-task-t3-t9.md) | F1 task sheets (Italian) |
+| [docs/migrazione-f1.md](docs/migrazione-f1.md) | Migration from the F0 API (Italian) |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Setup, tests and conventions |
 | [SECURITY.md](SECURITY.md) | Parsing untrusted files |
 | [CHANGELOG.md](CHANGELOG.md) | Change history |
@@ -226,6 +287,17 @@ go vet ./...
 go test ./...
 go test -race ./...
 ```
+
+Independent check of written files with ezdxf (optional, skipped when
+`python3` or `ezdxf` is missing):
+
+```powershell
+python3 scripts/oracle_check.py file.dxf
+go test -tags=oracle -run TestOracle -v .
+```
+
+ezdxf is permissive: a clean audit is necessary, not sufficient
+([docs/oracle.md](docs/oracle.md)).
 
 ## License
 

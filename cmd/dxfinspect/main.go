@@ -1,5 +1,6 @@
-// Command dxfinspect prints a summary of DXF R12 files: version, sections,
-// blocks, layers, entity counts per type and diagnostics.
+// Command dxfinspect prints a summary of DXF ASCII files, R12 to R2018:
+// version, blocks, layers, entity counts per type, the number of CLASSES and
+// OBJECTS records (R13 and later) and diagnostics.
 //
 // Usage:
 //
@@ -68,6 +69,10 @@ func inspect(path string, lenient bool, out io.Writer) error {
 	fmt.Fprintf(out, "  blocks: %d\n", len(doc.Blocks))
 	fmt.Fprintf(out, "  layers: %d\n", len(doc.Tables.LayerNames()))
 	fmt.Fprintf(out, "  entities: %d\n", len(doc.Entities))
+	if len(doc.Classes) > 0 || len(doc.Objects) > 0 {
+		fmt.Fprintf(out, "  classes: %d\n", len(doc.Classes))
+		fmt.Fprintf(out, "  objects: %d\n", len(doc.Objects))
+	}
 	if len(doc.UnknownSections) > 0 {
 		names := make([]string, 0, len(doc.UnknownSections))
 		for _, section := range doc.UnknownSections {

@@ -102,6 +102,32 @@ memory usage proportional to the file size.
 
 Completion criterion: every acceptance criterion in the README is satisfied.
 
+## Phase 7 — F1: R2013 core
+
+Status: complete. G1 (task T11) passed on 2 November 2026 in ZWCAD 2023 and
+CadCraft 0.16.0. The detailed task
+sheets are in [f1-task-t3-t9.md](f1-task-t3-t9.md) (Italian) and the decisions
+in [adr/README.md](adr/README.md).
+
+- T3: package `tags` (group code stream reader and writer).
+- T4: character encodings (UTF-8, CP1252, Latin-1, `\U+XXXX`; ADR 0004).
+- T5: `Handle`, owners, handle index and `$HANDSEED` (ADR 0006).
+- T6: multi-version reader, R12 to R2018, binary DXF rejected (ADR 0008).
+- T7: typed tables and `BLOCK_RECORD`.
+- T8: `CLASSES`, `OBJECTS`, dictionaries and `LAYOUT`.
+- T9: writer for R2000 to R2018 (`WithVersion`, `NewDocumentVersion`; ADR 0009),
+  R12 writing unchanged.
+- T10: ezdxf oracle, round-trip tests, benchmarks (`scripts/`, `testdata/oracle`,
+  [oracle.md](oracle.md)).
+- T12: documentation of F1.
+- T11 (G1): the four files of `testdata/g1/` open and save correctly in ZWCAD
+  2023 and CadCraft 0.16.0 (results table in `testdata/g1/README.md`).
+
+Completion criterion: G1 passed with at least two CAD applications, ZWCAD
+included (met). ADR 0002 moves `NewDocument()` to R2013 with a changelog
+entry; that change is still to be made and `NewDocument()` returns an R12 document. Written versions other than R2013
+are not declared verified until they are opened in a CAD (ADR 0009).
+
 ## Acceptance criteria for v0.1.0
 
 1. Reads and writes DXF R12 ASCII without third-party dependencies.
@@ -121,9 +147,9 @@ Outside the scope of `v0.1.0`, in order of likelihood:
 | Feature | Note |
 | --- | --- |
 | XDATA for structural metadata | Requires an ADR and a dedicated `APPID` |
-| Text code page handling | Requires an ADR on encoding |
-| Reading DXF R13–R14 | `LWPOLYLINE`, `SPLINE`, `ELLIPSE` |
-| Writing DXF 2000 | Mandatory handles, `OBJECTS` section |
+| Text code page handling | Partly done in F1 (ADR 0004): writing converts to CP1252 and Latin-1; reading keeps the bytes |
+| Reading DXF R13–R14 | Done in F1 on a best-effort basis; `LWPOLYLINE`, `SPLINE`, `ELLIPSE` are kept as `RawEntity` |
+| Writing DXF 2000 | Done in F1 for R2000 to R2018 (ADR 0009); R13 and R14 are not written |
 | Dimension entities | More complex parsing and model |
 | Sections and materials | Separate package, not in `structural` |
 | IFC import | Different format, not a DXF extension |

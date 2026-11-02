@@ -28,10 +28,10 @@ Scrivere OK, KO oppure il testo del messaggio mostrato.
 
 | File | ZWCAD 2023: apre | ZWCAD: entita' e layer | ZWCAD: AUDIT | ZWCAD: salva e riapre | CadCraft 0.16.0: apre | CadCraft: entita' e layer | Note |
 |------|------|------|------|------|------|------|------|
-| 01-vuoto-r2013 | | | | | | | |
-| 02-entita-supportate | | | | | | | |
-| 03-blocco-insert-attrib | | | | | | | |
-| 04-structural-frame-r2013 | | | | | | | |
+| 01-vuoto-r2013 | OK | OK | OK | OK | OK | OK | |
+| 02-entita-supportate | OK | OK | OK | OK | OK | OK | |
+| 03-blocco-insert-attrib | OK | OK | OK | OK | OK | OK | |
+| 04-structural-frame-r2013 | OK | OK | OK | OK | OK | OK | |
 
 ## Cosa osservare in particolare
 
@@ -39,3 +39,5 @@ Scrivere OK, KO oppure il testo del messaggio mostrato.
 - POLYLINE con VERTEX: owner dei vertici e SEQEND.
 - ATTRIB dell'INSERT: ordine dei gruppi (`72`, `74`) e visibilita'.
 - Se un file non si apre, provare prima il numero 01: se anche quello fallisce il problema e' nell'intestazione o nelle tabelle, non nelle entita'.
+
+Esito: tutti i test passati in ZWCAD 2023 e CadCraft 0.16.0 (2 novembre 2026, riferito dall'utente; nessuna nota o avviso). G1 soddisfatto per i file R2013. I file R2000-R2018 di `testdata/oracle` (sintetici) non sono stati provati in un CAD.

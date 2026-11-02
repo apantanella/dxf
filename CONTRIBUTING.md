@@ -45,10 +45,12 @@ If `gofmt -l .` lists a file, run `gofmt -s -w .` and repeat.
 
 | Path | Content |
 | --- | --- |
-| root | package `dxf`: DXF R12 codec |
+| root | package `dxf`: DXF codec (R12 to R2018) |
+| `tags/` | group code stream reader and writer |
 | `structural/` | structural model and mapping |
 | `docs/` | project documentation |
-| `docs/decisions/` | architecture decision records |
+| `docs/decisions/` | architecture decision records (phases 0-6) |
+| `docs/adr/` | architecture decision records of F1 |
 | `testdata/` | fixtures, with declared provenance |
 
 Dependency rule: `structural` imports `dxf`; the reverse is not allowed.

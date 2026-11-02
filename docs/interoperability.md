@@ -36,8 +36,22 @@ no CAD application applies implicit conversions.
 - The first release handles ASCII text. When a file contains non-ASCII bytes,
   `Decode` records one warning that gives the number of values and the line of
   the first one; the bytes are preserved unchanged.
-- `$DWGCODEPAGE` is preserved without automatic conversion.
+- `$DWGCODEPAGE` is preserved without automatic conversion in R12.
 - Full code page support requires a dedicated ADR.
+
+F1 (ADR 0004 in `docs/adr`):
+
+- From R2007 the files are UTF-8, read and written.
+- Writing R2000 and R2004 converts to the code page of `$DWGCODEPAGE`
+  (`ANSI_1252` or `ISO8859-1`; `ANSI_1252` when the variable is missing). A
+  character the code page cannot represent is written as `\U+XXXX`. Other code
+  pages are not translated.
+- Reading before R2007 does not convert: the bytes are kept and a warning is
+  recorded, as for R12. `\U+XXXX` sequences in a file are not decoded.
+- `$DWGCODEPAGE` is always written, also from R2007, where it does not govern
+  the encoding. There is no dependency on `golang.org/x/text`.
+- Binary DXF is not supported (ADR 0008): `Decode` returns an error that
+  satisfies `errors.Is(err, ErrNotDXF)` and says the file is binary.
 
 ## Numbers and precision
 
@@ -48,6 +62,44 @@ no CAD application applies implicit conversions.
 - Non-finite values (`NaN`, `Inf`) are a validation error.
 - Precision must not change topology: the node merge tolerance is a parameter,
   not a hidden constant.
+
+## Writable versions (F1)
+
+`Encode` writes `AC1009` (R12) and `AC1015`, `AC1018`, `AC1021`, `AC1024`,
+`AC1027` (R2013) and `AC1032`. `AC1006`, `AC1012` and `AC1014` are not written:
+the error satisfies both `errors.Is(err, ErrUnsupportedVersion)` and
+`errors.Is(err, ErrValidation)` (ADR 0009). `Decode` accepts the nine versions
+from `AC1009` to `AC1032`; R13 and R14 on a best-effort basis.
+
+How each is verified:
+
+| Version | Verification |
+| --- | --- |
+| R12 | F0 regression suite and the matrix below |
+| R2013 | Structure from the T1 reference files, opened in ZWCAD 2023 and CadCraft 0.16.0 ([dxf-r2013.md](dxf-r2013.md)); written files audited with ezdxf; G1 (hands-on check of the written files, `testdata/g1/README.md`) **not done yet** |
+| R2000, R2004, R2007, R2010, R2018 | ezdxf audit only; they differ from R2013 in `$ACADVER` and, before R2007, in the text encoding. Not declared supported until opened in a CAD |
+
+ezdxf is permissive: a clean audit is necessary, not sufficient
+([oracle.md](oracle.md)). The CAD applications available for F1 are ZWCAD 2023
+and CadCraft 0.16.0; the rows of the matrix below were not produced by the F1
+checks.
+
+Format differences between the R12 and the R2000+ writers:
+
+| Aspect | R12 | R2000 to R2018 |
+| --- | --- | --- |
+| Line ending | LF | CR LF |
+| Group codes | not aligned | right-aligned on three columns |
+| Reals | format `'f'` (`1e20` becomes `100000000000000000000`) | Python style: `0.0`, `1.34`, `1e+20` |
+| Handles, owners | only if the document uses them | always |
+| Subclass markers (`100`) | none | always; without them ZWCAD shows an empty drawing (T1, variant v06) |
+| Sections | `HEADER`, `TABLES`, `BLOCKS`, `ENTITIES` | plus `CLASSES` and `OBJECTS` |
+
+Number formatting is an allowed normalization of the round-trip criterion
+(ADR 0005): `1.0` and `1` are the same value. Files written by the library
+satisfy `Encode(Decode(Encode(doc)))` byte-identical to `Encode(doc)`; for files
+from other CAD applications compare with
+`python3 scripts/tagdiff.py --ignore-handles`.
 
 ## CAD application compatibility
 
@@ -110,8 +162,12 @@ Procedure:
 | No `MTEXT` | Labels use `TEXT` |
 | No dimension entity support | Dimensions remain unsupported entities |
 | No georeferencing | The model uses local coordinates |
-| No `OBJECTS` | Not applicable to R12 |
-| No mandatory handle | References between entities are unavailable |
+| No `OBJECTS` | Not applicable to R12; from R2000 `OBJECTS` is read and written |
+| No mandatory handle | In R12 references between entities are unavailable; from R2000 handles are always written |
+| Binary DXF | Not supported (ADR 0008) |
+| Text before R2007 | Not converted on reading (the bytes are kept) |
+| R13, R14 | Read only, best effort |
+| Entities not interpreted in F1 | `LWPOLYLINE`, `MTEXT`, `HATCH`, `DIMENSION` and others are kept as `RawEntity` and not generated |
 | OCS conversion limited to imported entities | Circles, arcs, solids, traces and inserts are not converted |
 
 ## Automatic round-trip verification

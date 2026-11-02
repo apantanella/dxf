@@ -8,8 +8,11 @@ must have a corresponding test.
 - The version is declared in the header by the `$ACADVER` variable (group code 1).
 - For R11/R12 the value is `AC1009` (source: DXF Reference, HEADER Section Group
   Codes).
-- The codec rejects a document whose `$ACADVER` differs from `AC1009` with
-  `ErrUnsupportedVersion`, unless a tolerant mode is explicitly requested.
+- Since F1 the codec accepts the nine versions from `AC1009` to `AC1032` and
+  rejects any other `$ACADVER` with `ErrUnsupportedVersion` (a `*VersionError`),
+  unless a tolerant mode is explicitly requested. This document describes the R12
+  subset; the R2013 file written by the library is in
+  [dxf-r2013.md](dxf-r2013.md).
 - A missing `$ACADVER` is an error in strict mode and a warning in lenient mode.
 
 ## File structure
@@ -25,8 +28,10 @@ R12 sections are:
 | `ENTITIES` | Yes | Model space entities |
 | `EOF` | Yes | File terminator |
 
-`CLASSES` and `OBJECTS` are not part of the R12 structure: the reader recognizes
-them, skips them and emits an informational diagnostic.
+`CLASSES` and `OBJECTS` are not part of the R12 structure. In an R12 file the
+reader (since F1) reads them into `Document.Classes` and `Document.Objects`
+whatever the version. The R12 writer never writes them and rejects a document
+that holds them with `ErrValidation` (ADR 0007 in `docs/adr`).
 
 Syntax rules:
 

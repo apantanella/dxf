@@ -1,6 +1,9 @@
 package structural_test
 
 import (
+	"math"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -84,6 +87,131 @@ func TestModelValidate(t *testing.T) {
 				t.Fatal("Validate() = nil, want error")
 			}
 		})
+	}
+}
+
+func TestImportConvertsOCSToWCS(t *testing.T) {
+	t.Parallel()
+
+	mapping := structural.DefaultMapping()
+	doc := dxf.NewDocument()
+	doc.Entities = []dxf.Entity{
+		&dxf.Polyline{
+			EntityCommon: dxf.EntityCommon{
+				LayerName:    structural.LayerPanels,
+				Extrusion:    dxf.Point3D{Z: -1},
+				ExtrusionSet: true,
+			},
+			Flags:     1,
+			Elevation: dxf.Point3D{Z: 5},
+			Vertices: []dxf.Vertex{
+				{Position: dxf.Point3D{}},
+				{Position: dxf.Point3D{X: 1}},
+				{Position: dxf.Point3D{X: 1, Y: 1}},
+			},
+		},
+	}
+
+	model, report, err := structural.Import(doc, mapping)
+	if err != nil {
+		t.Fatalf("Import() = %v", err)
+	}
+	if report.Skipped != 0 {
+		t.Fatalf("skipped = %d: %v", report.Skipped, report.Diagnostics)
+	}
+	if len(model.Panels) != 1 {
+		t.Fatalf("panels = %d, want 1", len(model.Panels))
+	}
+	want := []dxf.Point3D{{Z: -5}, {X: -1, Z: -5}, {X: -1, Y: 1, Z: -5}}
+	got := model.Panels[0].Boundary
+	if len(got) != len(want) {
+		t.Fatalf("boundary points = %d, want %d", len(got), len(want))
+	}
+	for i := range want {
+		if !pointClose(got[i], want[i]) {
+			t.Errorf("boundary[%d] = %+v, want %+v", i, got[i], want[i])
+		}
+	}
+}
+
+func TestImportConvertsTextOCSToWCS(t *testing.T) {
+	t.Parallel()
+
+	mapping := structural.DefaultMapping()
+	doc := dxf.NewDocument()
+	doc.Entities = []dxf.Entity{
+		&dxf.Point{EntityCommon: dxf.EntityCommon{LayerName: structural.LayerNodes}, Position: dxf.Point3D{X: -1, Y: 2}},
+		&dxf.Text{
+			EntityCommon: dxf.EntityCommon{
+				LayerName:    structural.LayerLabels,
+				Extrusion:    dxf.Point3D{Z: -1},
+				ExtrusionSet: true,
+			},
+			Value:    "N1",
+			Position: dxf.Point3D{X: 1, Y: 2},
+			Height:   1,
+			XScale:   1,
+		},
+	}
+
+	model, _, err := structural.Import(doc, mapping)
+	if err != nil {
+		t.Fatalf("Import() = %v", err)
+	}
+	if len(model.Nodes) != 1 {
+		t.Fatalf("nodes = %d, want 1", len(model.Nodes))
+	}
+	if model.Nodes[0].Label != "N1" {
+		t.Errorf("label = %q, want %q", model.Nodes[0].Label, "N1")
+	}
+}
+
+func pointClose(a, b dxf.Point3D) bool {
+	const epsilon = 1e-9
+	return math.Abs(a.X-b.X) < epsilon && math.Abs(a.Y-b.Y) < epsilon && math.Abs(a.Z-b.Z) < epsilon
+}
+
+func TestImportStructuralFrameFixture(t *testing.T) {
+	t.Parallel()
+
+	file, err := os.Open(filepath.Join("..", "testdata", "structural-frame.dxf"))
+	if err != nil {
+		t.Fatalf("open fixture: %v", err)
+	}
+	defer file.Close()
+
+	doc, err := dxf.Decode(file)
+	if err != nil {
+		t.Fatalf("Decode() = %v", err)
+	}
+	if len(doc.Diagnostics) != 0 {
+		t.Fatalf("unexpected diagnostics: %v", doc.Diagnostics)
+	}
+
+	model, report, err := structural.Import(doc, structural.DefaultMapping())
+	if err != nil {
+		t.Fatalf("Import() = %v", err)
+	}
+	if len(model.Nodes) != 3 {
+		t.Errorf("nodes = %d, want 3", len(model.Nodes))
+	}
+	if len(model.Members) != 2 {
+		t.Fatalf("members = %d, want 2", len(model.Members))
+	}
+	if model.Members[0].Kind != structural.MemberColumn || model.Members[1].Kind != structural.MemberBeam {
+		t.Errorf("kinds = %v, %v", model.Members[0].Kind, model.Members[1].Kind)
+	}
+	if len(model.Panels) != 1 {
+		t.Errorf("panels = %d, want 1", len(model.Panels))
+	}
+	if len(model.Grids) != 1 {
+		t.Fatalf("grids = %d, want 1", len(model.Grids))
+	}
+	if model.Grids[0].Label != "A" {
+		t.Errorf("grid label = %q, want %q", model.Grids[0].Label, "A")
+	}
+	if report.Skipped != 0 {
+		t.Errorf("skipped = %d: %v", report.Skipped, report.Diagnostics)
 	}
 }
 

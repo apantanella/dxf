@@ -14,21 +14,25 @@ registered in the table below with its provenance.
 - Malformed files go in `invalid/` and must match a test that verifies the
   expected error.
 
-## Planned fixtures
+## Fixtures in this repository
 
-| File | Phase | Content | Provenance |
-| --- | --- | --- | --- |
-| `minimal.dxf` | 1 | Header, minimal tables, empty `ENTITIES` | To generate |
-| `lines.dxf` | 3 | `LINE` on different layers | To generate |
-| `entities.dxf` | 3 | Every entity in the supported subset | To generate |
-| `polyline-closed.dxf` | 3 | Closed `POLYLINE` with a bulge | To generate |
-| `text-ocs.dxf` | 3 | `TEXT` with style and alignment | To generate |
-| `blocks-insert.dxf` | 3 | Block definition and `INSERT` | To generate |
-| `structural-frame.dxf` | 4 | Frame with nodes, beams, columns, grids | To generate |
-| `invalid/truncated.dxf` | 1 | File cut in the middle of a pair | To generate |
-| `invalid/bad-float.dxf` | 1 | Group code `10` with a non-numeric value | To generate |
-| `invalid/no-eof.dxf` | 1 | Missing `EOF` terminator | To generate |
-| `invalid/vertex-orphan.dxf` | 1 | `VERTEX` outside a `POLYLINE` | To generate |
+| File | Content | Provenance |
+| --- | --- | --- |
+| `minimal.dxf` | Header, `LAYER` table, empty `BLOCKS` and `ENTITIES` | Hand-written for this repository |
+| `lines.dxf` | Three `LINE` entities on layers `0`, `STR-BEAMS`, `STR-COLUMNS` | Hand-written for this repository |
+| `polyline-closed.dxf` | Closed `POLYLINE` with three vertices and a bulge | Hand-written for this repository |
+| `text-ocs.dxf` | `TEXT` with the `STANDARD` style, horizontal alignment and alignment point | Hand-written for this repository |
+| `blocks-insert.dxf` | `BLOCK` definition with a `LINE` and an `INSERT` with one `ATTRIB` | Hand-written for this repository |
+| `structural-frame.dxf` | Nodes, column, beam, panel, grid and label on the `STR-*` layers | Hand-written for this repository |
+| `invalid/truncated.dxf` | File cut in the middle of a group code/value pair | Hand-written for this repository |
+| `invalid/bad-float.dxf` | Group code `10` with a non-numeric value | Hand-written for this repository |
+| `invalid/no-eof.dxf` | Valid content without the `EOF` terminator | Hand-written for this repository |
+| `invalid/vertex-orphan.dxf` | `VERTEX` outside a `POLYLINE` | Hand-written for this repository |
+
+Every file is verified by `TestFixturesDecode`, `TestFixtureEntityTypes`,
+`TestFixtureRoundTripIsStable` and `TestInvalidFixtures` in
+`../testdata_test.go`, and `TestImportStructuralFrameFixture` in
+`../structural/structural_test.go`.
 
 ## External fixtures to acquire
 
@@ -39,3 +43,4 @@ registered in the table below with its provenance.
 | R12 file from BricsCAD | BricsCAD | Real-world reading check | Version and date |
 
 External files must not be committed until a compatible license is declared.
+

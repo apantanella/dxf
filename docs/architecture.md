@@ -149,6 +149,7 @@ Phases 1–4 of the roadmap are implemented:
 | Group code scanner | `scanner.go` | complete |
 | Diagnostics and errors | `diagnostics.go` | complete |
 | Group code kinds | `groupcode.go` | complete |
+| OCS/WCS geometry | `geometry.go` | complete |
 | Document, header, tables | `dxf.go` | complete |
 | Entities and decoders | `entities.go` | complete |
 | Section parser | `reader.go` | complete |
@@ -157,9 +158,8 @@ Phases 1–4 of the roadmap are implemented:
 | Mapping and report | `structural/mapping.go` | complete |
 | Import and export | `structural/import.go`, `structural/export.go` | complete |
 
-Known limitation: the OCS → WCS conversion is documented but not yet applied by
-the structural import; entities with an extrusion other than `(0, 0, 1)` produce
-a diagnostic.
+Open items: manual verification with external CAD applications and the resulting
+interoperability matrix.
 
 ## References
 

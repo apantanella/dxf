@@ -169,9 +169,9 @@ document, to be passed to `dxf.Encode`.
    axis.
 8. Record every excluded entity and the reason in the report.
 
-Known limitation: entities with an extrusion other than `(0, 0, 1)` are read with
-the coordinates stored in OCS and produce an ambiguity diagnostic. Full OCS →
-WCS conversion is planned.
+Known limitation: the OCS → WCS conversion covers 2D polylines and `TEXT`
+positions, which are the entities the structural import reads. Entities that are
+skipped by the import (circles, arcs, solids, traces, inserts) are not converted.
 
 ## Export rules
 

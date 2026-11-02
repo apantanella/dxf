@@ -84,12 +84,28 @@ log.Printf("nodes: %d, members: %d, skipped: %d",
 
 ## Current limitations
 
-- DXF → structural conversion uses the stored coordinates: entities whose
-  extrusion is not `(0, 0, 1)` produce a diagnostic and are not yet transformed
-  to WCS.
+- OCS → WCS conversion covers 2D polylines and `TEXT`; other OCS entities are not
+  imported structurally.
 - There is no implicit unit conversion: `structural.Unit` and
   `structural.Mapping.Unit` must be declared by the application.
 - Structural metadata uses layers and blocks, not XDATA.
+- Generated files have not yet been verified with external CAD applications.
+
+## Performance
+
+Benchmarks on 100,000 `LINE` entities (Intel Core i7-1355U, Go 1.27):
+
+| Operation | Time | Throughput | Allocated |
+| --- | --- | --- | --- |
+| `Decode` | ~189 ms | 28.1 MB/s | 96 MB, 2.9M allocs |
+| `Encode` | ~79 ms | — | 39 MB, 0.8M allocs |
+| Round-trip | ~271 ms | 19.6 MB/s | 135 MB, 3.7M allocs |
+
+Run them with:
+
+```powershell
+go test -run=XXX -bench=. -benchmem .
+```
 
 ## Documentation
 

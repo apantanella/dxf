@@ -38,7 +38,15 @@ versioning follows [Semantic Versioning](https://semver.org/).
   `Mapping`, `Report`, `Import` and `Export`.
 - Classification of beams, columns and braces by layer or by orientation.
 - Table-driven tests, runnable examples, decoder fuzz test and DXF and
-  structural round-trip tests. Coverage: 72.9% (`dxf`), 70.7% (`structural`).
+  structural round-trip tests.
+- OCS/WCS geometry helpers in `geometry.go`: `ArbitraryAxis`, `OCS2WCS` and
+  `WCS2OCS` following the DXF arbitrary axis algorithm.
+- OCS → WCS conversion in the structural import for 2D polylines (elevation and
+  normal) and `TEXT` positions.
+- Hand-written fixtures in `testdata/` with tests for decoding, entity types,
+  round-trip stability and invalid input.
+- Benchmarks on a document with 100,000 `LINE` entities: decode ~189 ms
+  (28.1 MB/s), encode ~79 ms, round-trip ~271 ms.
 
 ### Changed
 

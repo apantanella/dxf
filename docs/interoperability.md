@@ -79,7 +79,7 @@ Procedure:
 | No georeferencing | The model uses local coordinates |
 | No `OBJECTS` | Not applicable to R12 |
 | No mandatory handle | References between entities are unavailable |
-| No OCS → WCS conversion in the structural import | Entities with a non-default extrusion produce a diagnostic |
+| OCS conversion limited to imported entities | Circles, arcs, solids, traces and inserts are not converted |
 
 ## Automatic round-trip verification
 

@@ -253,9 +253,9 @@ Arbitrary axis algorithm, with `N` the extrusion normal:
 
 Angles are always in degrees, counter-clockwise, unless stated otherwise.
 
-The structural import does not apply this conversion yet: entities with a
-non-default extrusion produce an ambiguity diagnostic and keep their stored
-coordinates.
+The structural import applies the conversion to the entities it reads: 2D
+polyline vertices use the polyline elevation and normal, and `TEXT` positions use
+the entity normal. `LINE`, `POINT` and `3DFACE` are already in WCS.
 
 ## Round-trip
 

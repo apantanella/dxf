@@ -60,10 +60,6 @@ Status: complete.
 Completion criterion: every entity has tests for reading, writing, default
 values and edge cases.
 
-Note: the OCS/WCS conversion is documented in `docs/dxf-r12.md` but is not yet
-applied by the structural import; entities with a non-default extrusion produce
-a diagnostic.
-
 ## Phase 4 — Structural model
 
 Status: complete.
@@ -73,18 +69,22 @@ Status: complete.
 - `Import` with `Report`.
 - `Export` with default layer conventions.
 - Invariant validation.
+- OCS → WCS conversion for 2D polylines and `TEXT` during import.
 
 Completion criterion: a simple frame is imported, modified and exported; the
 report describes every exclusion.
 
 ## Phase 5 — Quality and interoperability
 
-- Valid and malformed fixtures.
-- Fuzz tests on arbitrary input.
-- Benchmarks on files with at least 100,000 entities.
-- Manual verification with LibreCAD, QCAD and an Autodesk product.
-- Documentation of the observed differences.
-- OCS → WCS conversion in the structural import.
+Status: in progress.
+
+- [x] Valid and malformed fixtures in `testdata/`.
+- [x] Fuzz tests on arbitrary input.
+- [x] Benchmarks on a document with 100,000 entities.
+- [x] OCS → WCS conversion in the structural import.
+- [ ] Manual verification with LibreCAD, QCAD and an Autodesk product.
+- [ ] Documentation of the observed differences and of the interoperability
+      matrix.
 
 Completion criterion: the interoperability matrix is filled in; no panics;
 memory usage proportional to the file size.

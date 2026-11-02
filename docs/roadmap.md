@@ -125,8 +125,32 @@ in [adr/README.md](adr/README.md).
 
 Completion criterion: G1 passed with at least two CAD applications, ZWCAD
 included (met). ADR 0002 moves `NewDocument()` to R2013 with a changelog
-entry; that change is still to be made and `NewDocument()` returns an R12 document. Written versions other than R2013
+entry; the change was made in F2 (task T0). Written versions other than R2013
 are not declared verified until they are opened in a CAD (ADR 0009).
+
+## Phase 8 — F2: entities for a structural drawing
+
+Status: in progress. The guide is in
+[f2-guida-implementazione.md](f2-guida-implementazione.md) (Italian); the
+decisions D9–D14 (and D15, D16) are in [adr/0010](adr/0010-entita-di-f2.md).
+
+- T0: F1 debts (ATTRIB `72`, automatic APPID), `NewDocument()` to R2013,
+  decisions in ADR 0010. **Done.**
+- T1: real fixtures from ZWCAD in `testdata/f2/real` and a truth table in
+  `testdata/f2/README.md`; synthetic equivalents in `testdata/f2/synth`.
+- T2: true color, line weight, linetype scale, ordered cursor over repeated
+  groups.
+- T3–T7: LWPOLYLINE; ELLIPSE and SPLINE; MTEXT; ATTDEF and ATTRIB; standard
+  linetypes.
+- T8: HATCH (paths, solid, patterns).
+- T9–T11: DIMSTYLE and DIMENSION; the minimum dimension block; LEADER and
+  MLEADER.
+- T12: extents, validation, R12 conversion (D11), `structural`.
+- T13: `dxfgen`, oracle, benchmarks, fuzz, G1b.
+- T14: documentation.
+
+Completion criterion: the requirements Q1–Q10 of the guide are met and G1b
+passes in two CAD applications, ZWCAD included.
 
 ## Acceptance criteria for v0.1.0
 

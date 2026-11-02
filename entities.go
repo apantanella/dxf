@@ -569,6 +569,29 @@ func (s *groupSet) markSubclass(code int) (Group, bool) {
 	return Group{}, false
 }
 
+// markPreferred is markSubclass without the fallback: a record with subclass
+// markers only yields a group that sits in one of the subclasses named by
+// prefer. It is used when the same code exists in two subclasses with different
+// meanings, where taking the wrong one would corrupt the record: the 72 of an
+// ATTRIB belongs to AcDbText (horizontal alignment) and not to AcDbAttribute,
+// which R2018 files write with a 72 of their own. Records without markers behave
+// like mark, so R12 files are unaffected.
+func (s *groupSet) markPreferred(code int) (Group, bool) {
+	if s.sub == nil || len(s.pref) == 0 {
+		return s.mark(code)
+	}
+	for i, g := range s.groups {
+		if g.Code != code || s.blocked[i] {
+			continue
+		}
+		if s.preferred(i) {
+			s.used[i] = true
+			return g, true
+		}
+	}
+	return Group{}, false
+}
+
 func (s *groupSet) str(code int) (string, bool) {
 	g, ok := s.mark(code)
 	if !ok {
@@ -601,6 +624,21 @@ func (s *groupSet) float(code int) (float64, bool, error) {
 
 func (s *groupSet) int(code int) (int, bool, error) {
 	g, ok := s.mark(code)
+	if !ok {
+		return 0, false, nil
+	}
+	v, err := g.Int()
+	if err != nil {
+		return 0, true, err
+	}
+	return v, true, nil
+}
+
+// intPreferred is int restricted to the preferred subclasses (see
+// markPreferred): a code that only exists in another subclass is left in the
+// leftovers instead of being taken as a fallback.
+func (s *groupSet) intPreferred(code int) (int, bool, error) {
+	g, ok := s.markPreferred(code)
 	if !ok {
 		return 0, false, nil
 	}
@@ -1179,7 +1217,11 @@ func decodeAttribute(groups []Group, modern bool) (Attribute, error) {
 		a.VAlign = v
 	}
 	gs.prefer(prefText)
-	if v, ok, err := gs.int(groupHAlign); err != nil {
+	// The horizontal alignment (72) belongs to AcDbText. R2018 files also write
+	// a 72 inside AcDbAttribute (after the 71): read it only from the preferred
+	// subclass, so the AcDbAttribute 72 stays in Raw and is written back where it
+	// was instead of being mistaken for the alignment.
+	if v, ok, err := gs.intPreferred(groupHAlign); err != nil {
 		return a, err
 	} else if ok {
 		a.HAlign = v

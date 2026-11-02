@@ -9,7 +9,9 @@ import (
 // LayerMembers is used for members whose kind is not classified.
 const LayerMembers = "STR-MEMBERS"
 
-// Export converts a structural model into a DXF R12 document using mapping.
+// Export converts a structural model into a DXF document using mapping. The
+// document has the version of dxf.NewDocument (R2013 since F2): write it with
+// dxf.Encode, or pass dxf.WithVersion(dxf.VersionR12) to write it as R12.
 //
 // Coordinates are converted from the model unit to mapping.Unit. If mapping.Unit
 // is UnitUnknown, coordinates are written in the model unit unchanged.

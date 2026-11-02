@@ -2,7 +2,7 @@
 
 ## Stato
 
-Proposta, 2026-11-02. Da confermare. Adottata in via provvisoria dalle fasi di sviluppo in corso: `tags/tag.go` definisce già `Tag`, e `groupcode.go` dichiara `dxf.Group` come alias di `tags.Tag`.
+Confermata, 2026-11-02 (F2, T0). Adottata dalle fasi di sviluppo: `tags/tag.go` definisce `Tag`, e `groupcode.go` dichiara `dxf.Group` come alias di `tags.Tag`.
 
 ## Contesto
 

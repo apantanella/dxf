@@ -138,7 +138,7 @@ func namesOf(tb *Table) []string {
 
 func TestR7EnsureFunctionsUnchanged(t *testing.T) {
 	t.Parallel()
-	doc := NewDocument()
+	doc := NewDocumentVersion(VersionR12)
 	doc.Tables.EnsureLayer("WALLS", 3, "DASHED")
 	doc.Tables.EnsureLinetype("DASHED")
 	doc.Tables.EnsureAppID("MYAPP")
@@ -226,7 +226,7 @@ func TestR7LayerFields(t *testing.T) {
 
 func TestLinetypeAndTextStyleViews(t *testing.T) {
 	t.Parallel()
-	doc := NewDocument()
+	doc := NewDocumentVersion(VersionR12)
 	doc.Tables.EnsureLinetype("DASHED")
 	lt, ok := doc.Tables.Linetype("dashed")
 	if !ok || lt.Name != "DASHED" || !reflect.DeepEqual(lt.Pattern, []float64{0.5, -0.25}) || !strings.HasPrefix(lt.Description, "Dashed") {
@@ -401,7 +401,7 @@ func TestR8MinimalFileTables(t *testing.T) {
 
 func TestNoDuplicatesByCase(t *testing.T) {
 	t.Parallel()
-	doc := NewDocument() // CONTINUOUS, STANDARD in capitals
+	doc := NewDocumentVersion(VersionR12) // CONTINUOUS, STANDARD in capitals
 	res := prepareR2013Tables(doc, counter(1))
 	if got, want := namesOf(res.Tables.Find("LTYPE")), []string{"ByBlock", "ByLayer", "CONTINUOUS"}; !reflect.DeepEqual(got, want) {
 		t.Errorf("LTYPE = %v, want %v", got, want)

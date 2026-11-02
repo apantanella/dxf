@@ -51,7 +51,7 @@ func TestHandleStringAndParse(t *testing.T) {
 }
 
 func handleTestDoc() (*Document, *Line, *Block, *Line) {
-	doc := NewDocument()
+	doc := NewDocumentVersion(VersionR12)
 	line := &Line{EntityCommon: EntityCommon{Handle: "2A"}, End: Point3D{X: 1}}
 	inBlock := &Line{EntityCommon: EntityCommon{Handle: "3B"}, End: Point3D{X: 2}}
 	block := &Block{Name: "B", Raw: []Group{{Code: 5, Value: "40"}}, Entities: []Entity{inBlock}}
@@ -187,7 +187,7 @@ func TestValidateHandlesZeroAndClean(t *testing.T) {
 func TestEncodeRejectsDuplicateHandles(t *testing.T) {
 	t.Parallel()
 
-	doc := NewDocument()
+	doc := NewDocumentVersion(VersionR12)
 	doc.Entities = []Entity{
 		&Line{EntityCommon: EntityCommon{Handle: "1A"}},
 		&Line{EntityCommon: EntityCommon{Handle: "1a"}},
@@ -203,7 +203,7 @@ func TestEncodeRejectsDuplicateHandles(t *testing.T) {
 	}
 
 	// A duplicate between a block record (Raw) and an entity is also caught.
-	doc = NewDocument()
+	doc = NewDocumentVersion(VersionR12)
 	doc.Blocks = []*Block{{Name: "B", Raw: []Group{{Code: 5, Value: "7"}}}}
 	doc.Entities = []Entity{&Line{EntityCommon: EntityCommon{Handle: "7"}}}
 	if err := Encode(&buf, doc); !errors.Is(err, ErrValidation) {
@@ -235,7 +235,7 @@ func parseAllHandles(t *testing.T, out string) []Handle {
 func TestEncodeAssignsHandlesWithoutCollisions(t *testing.T) {
 	t.Parallel()
 
-	doc := NewDocument()
+	doc := NewDocumentVersion(VersionR12)
 	doc.Header.Set("$HANDLING", 70, "1")
 	// Sparse handles, one hidden in preserved Raw groups of an entity, a
 	// vertex, and an unknown entity, and one in a table record.
@@ -303,7 +303,7 @@ func headerSeed(t *testing.T, out string) Handle {
 func TestEncodeNoHandlesIsUnchanged(t *testing.T) {
 	t.Parallel()
 
-	doc := NewDocument()
+	doc := NewDocumentVersion(VersionR12)
 	doc.Entities = []Entity{&Line{End: Point3D{X: 1}}, &Polyline{Vertices: []Vertex{{}, {Position: Point3D{X: 1}}}}}
 	out := encodeString(t, doc)
 	if strings.Contains(out, "$HANDLING") || strings.Contains(out, "$HANDSEED") || len(parseAllHandles(t, out)) != 0 {
@@ -316,7 +316,7 @@ func TestEncodeIdempotentWithMixedHandles(t *testing.T) {
 
 	insert := NewInsert("B", Point3D{})
 	insert.Attributes = []Attribute{{Value: "x", Tag: "T", Height: 1, Handle: "9"}, {Value: "y", Tag: "U", Height: 1}}
-	doc := NewDocument()
+	doc := NewDocumentVersion(VersionR12)
 	doc.Blocks = []*Block{{Name: "B", Entities: []Entity{&Line{End: Point3D{X: 1}}}}}
 	doc.Entities = []Entity{
 		&Line{EntityCommon: EntityCommon{Handle: "20"}},
@@ -385,7 +385,7 @@ func TestDecodeBlockEndHandle(t *testing.T) {
 func TestOwnerNotWrittenInR12(t *testing.T) {
 	t.Parallel()
 
-	doc := NewDocument()
+	doc := NewDocumentVersion(VersionR12)
 	doc.Entities = []Entity{&Line{EntityCommon: EntityCommon{Owner: 0x1F}}}
 	if out := encodeString(t, doc); strings.Contains(out, "\n330\n") {
 		t.Errorf("R12 writer must not emit group 330:\n%s", out)

@@ -6,6 +6,27 @@ versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### F2 (in progress)
+
+- **`NewDocument()` now returns an R2013 document** (ADR 0002): the entities F2
+  adds (LWPOLYLINE, MTEXT, HATCH, ...) do not exist in R12. It no longer carries
+  the default symbol tables, which `Encode` adds when they are missing. Use
+  `NewDocumentVersion(VersionR12)` for an empty R12 document with the default
+  tables `LAYER 0`, `LTYPE CONTINUOUS`, `STYLE STANDARD`. Callers that compared
+  the output of `Encode(NewDocument())` byte by byte must pass `VersionR12`
+  explicitly.
+- `ATTRIB`: the horizontal alignment (`72`) is read from `AcDbText` only. The
+  `72` that R2018 files write inside `AcDbAttribute` (after the `71`) is not the
+  alignment: it stays in `Raw` and is written back where it was. The R2018
+  writer workaround for it is gone.
+- The R2013 writer adds an APPID record for every application named by extended
+  data (`1001`), so a file that uses `ACAD` or `ACAD_DSTYLE_*` (dimensions,
+  MLEADERs) defines it.
+- ADR 0010 records the F2 decisions D9–D14 (true color, LWPOLYLINE, R12
+  conversion, dimension block, MLEADER, hatch patterns) plus the rules for
+  default-valued fields (D15) and for the ATTRIB `72` (D16). ADRs 0001, 0003,
+  0006, 0007 and 0009 are confirmed.
+
 ### F1 (in progress)
 
 - New package `tags`: `Tag`, `Reader`, `Writer`, `Kind`, character encodings

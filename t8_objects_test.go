@@ -904,7 +904,7 @@ func TestT8R12IsUnaffected(t *testing.T) {
 	// R12 output has no CLASSES and no OBJECTS, even for a document that has
 	// them (the conversion rule belongs to T9); the existing writer ignores
 	// them and the pre-T8 behaviour of Encode is unchanged.
-	doc := NewDocument()
+	doc := NewDocumentVersion(VersionR12)
 	doc.Classes = []Class{{DXFName: "X", CppName: "Y", AppName: "Z"}}
 	doc.Objects = []Object{&Dictionary{Handle: "1"}}
 	var b strings.Builder

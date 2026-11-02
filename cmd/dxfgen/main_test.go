@@ -79,8 +79,18 @@ func TestRunEntities(t *testing.T) {
 			t.Errorf("entity type %q missing from %v", want, types)
 		}
 	}
-	if len(doc.Blocks) != 1 || doc.Blocks[0].Name != "SAMPLE" {
-		t.Errorf("blocks = %+v", doc.Blocks)
+	// The R2013 file always carries the *Model_Space and *Paper_Space blocks, so
+	// look for SAMPLE among them instead of counting.
+	names := make([]string, 0, len(doc.Blocks))
+	found := false
+	for _, block := range doc.Blocks {
+		names = append(names, block.Name)
+		if block.Name == "SAMPLE" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("SAMPLE block missing: blocks = %v", names)
 	}
 }
 

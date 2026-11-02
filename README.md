@@ -45,8 +45,10 @@ Out of scope for the first release:
   `BlockRecords`).
 - Content the library does not interpret is kept with all its groups
   (`RawEntity`, `RawObject`) and written back unchanged.
-- R12 writing is unchanged from F0. `NewDocument()` still returns an R12
-  document. Migration notes (Italian): [docs/migrazione-f1.md](docs/migrazione-f1.md).
+- R12 writing is unchanged from F0. Since F2 `NewDocument()` returns an R2013
+  document (ADR 0002); use `NewDocumentVersion(dxf.VersionR12)` for an R12 one.
+  Migration notes (Italian): [docs/migrazione-f1.md](docs/migrazione-f1.md),
+  [docs/migrazione-f2.md](docs/migrazione-f2.md).
 - Only R2013 is based on reference files opened in ZWCAD 2023 and CadCraft
   0.16.0 (T1). The other written versions are checked with ezdxf only, and the
   hands-on check of the written files (G1, `testdata/g1/README.md`) is not done
@@ -184,10 +186,10 @@ go test -run=XXX -bench=. -benchmem .
 
 ## Generating verification files
 
-`dxfgen` writes DXF R12 files (the version of `dxf.NewDocument`) used to check
-the library against a CAD application. The R2013 files to open by hand are in
-`testdata/g1/`. The frame is defined in meters and exported in the requested unit,
-so the same geometry exercises the unit conversion.
+`dxfgen` writes verification files in the version of `dxf.NewDocument` (R2013
+since F2) used to check the library against a CAD application. The R2013 files to
+open by hand are in `testdata/g1/`. The frame is defined in meters and exported in
+the requested unit, so the same geometry exercises the unit conversion.
 
 ```powershell
 # Structural frame expressed in meters (3D: use an isometric view)

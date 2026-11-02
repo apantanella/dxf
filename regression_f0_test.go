@@ -62,7 +62,7 @@ func countCode(groups []Group, code int) int {
 }
 
 func blockDoc() *Document {
-	doc := NewDocument()
+	doc := NewDocumentVersion(VersionR12)
 	doc.Blocks = append(doc.Blocks, &Block{Name: "B"})
 	return doc
 }
@@ -144,7 +144,7 @@ func TestF0RawGroupsBeforeVerticesAndSeqend(t *testing.T) {
 
 // Bug 3: Encode must not modify the document it receives.
 func TestF0EncodeDoesNotMutateDocument(t *testing.T) {
-	doc := NewDocument()
+	doc := NewDocumentVersion(VersionR12)
 	doc.Entities = append(doc.Entities, &Line{EntityCommon: EntityCommon{LayerName: "NEW"}, End: Point3D{X: 1}})
 	before := len(doc.Tables.Find("LAYER").Records)
 	tables := len(doc.Tables.Items)
@@ -158,7 +158,7 @@ func TestF0EncodeDoesNotMutateDocument(t *testing.T) {
 }
 
 func TestF0EncodeConcurrent(t *testing.T) {
-	doc := NewDocument()
+	doc := NewDocumentVersion(VersionR12)
 	doc.Entities = append(doc.Entities, &Line{EntityCommon: EntityCommon{LayerName: "NEW"}, End: Point3D{X: 1}})
 	var wg sync.WaitGroup
 	for i := 0; i < 8; i++ {
@@ -233,7 +233,7 @@ func tableOrder(t *testing.T, text string) []string {
 
 // Bug 5: LTYPE must precede LAYER, which references it.
 func TestF0TableOrder(t *testing.T) {
-	doc := NewDocument()
+	doc := NewDocumentVersion(VersionR12)
 	doc.Tables.EnsureAppID("APP")
 	names := tableOrder(t, encodeString(t, doc))
 	index := map[string]int{}
@@ -251,7 +251,7 @@ func TestF0TableOrder(t *testing.T) {
 
 // Bug 6: a referenced linetype is defined or the document is rejected.
 func TestF0LinetypeReferences(t *testing.T) {
-	doc := NewDocument()
+	doc := NewDocumentVersion(VersionR12)
 	doc.Tables.EnsureLayer("AXES", 1, "CENTER")
 	doc.Entities = append(doc.Entities, &Line{EntityCommon: EntityCommon{LayerName: "AXES", Linetype: "DASHED"}, End: Point3D{X: 1}})
 	out := encodeString(t, doc)
@@ -268,14 +268,14 @@ func TestF0LinetypeReferences(t *testing.T) {
 		t.Fatal("LTYPE table is empty after a round trip")
 	}
 
-	bad := NewDocument()
+	bad := NewDocumentVersion(VersionR12)
 	bad.Entities = append(bad.Entities, &Line{EntityCommon: EntityCommon{Linetype: "NOT_STANDARD"}, End: Point3D{X: 1}})
 	err = Encode(io.Discard, bad)
 	if !errors.Is(err, ErrValidation) {
 		t.Errorf("undefined linetype: error = %v, want ErrValidation", err)
 	}
 
-	byLayer := NewDocument()
+	byLayer := NewDocumentVersion(VersionR12)
 	byLayer.Entities = append(byLayer.Entities, &Line{EntityCommon: EntityCommon{Linetype: "BYLAYER"}, End: Point3D{X: 1}})
 	if err := Encode(io.Discard, byLayer); err != nil {
 		t.Errorf("BYLAYER must be accepted: %v", err)
@@ -378,7 +378,7 @@ func TestF0BlockNameCode3(t *testing.T) {
 
 // Bug 10: the header carries the drawing extents.
 func TestF0Extents(t *testing.T) {
-	doc := NewDocument()
+	doc := NewDocumentVersion(VersionR12)
 	doc.Entities = append(doc.Entities,
 		&Line{Start: Point3D{X: -1, Y: 2, Z: 0}, End: Point3D{X: 10, Y: 5, Z: 3}},
 		&Circle{Center: Point3D{X: 0, Y: 0}, Radius: 20},
@@ -400,7 +400,7 @@ func TestF0Extents(t *testing.T) {
 		t.Error("$EXTMIN missing")
 	}
 
-	empty := encodeString(t, NewDocument())
+	empty := encodeString(t, NewDocumentVersion(VersionR12))
 	if strings.Contains(empty, "$EXTMIN") {
 		t.Error("an empty drawing must not declare extents")
 	}
@@ -415,7 +415,7 @@ func TestF0Extents(t *testing.T) {
 
 // Bug 11: handles stored in table records and blocks reserve the seed too.
 func TestF0MaxHandleInTablesAndBlocks(t *testing.T) {
-	doc := NewDocument()
+	doc := NewDocumentVersion(VersionR12)
 	doc.Tables.Find("LAYER").Records[0].Groups = append(doc.Tables.Find("LAYER").Records[0].Groups, Group{Code: 5, Value: "FF"})
 	doc.Blocks = append(doc.Blocks, &Block{Name: "B", Raw: []Group{{Code: 5, Value: "1FF"}}})
 	if got := maxHandle(doc); got != 0x1FF {

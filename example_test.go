@@ -28,7 +28,7 @@ func ExampleDecode() {
 }
 
 func ExampleEncode() {
-	doc := NewDocument()
+	doc := NewDocumentVersion(VersionR12)
 	doc.Entities = []Entity{
 		&Line{EntityCommon: EntityCommon{LayerName: "STR-BEAMS"}, End: Point3D{X: 3, Y: 4}},
 	}
@@ -43,7 +43,7 @@ func ExampleEncode() {
 }
 
 func ExampleDocument_Header() {
-	doc := NewDocument()
+	doc := NewDocumentVersion(VersionR12)
 	doc.Header.Set("$MEASUREMENT", 70, "1")
 	version, _ := doc.Header.Get("$ACADVER")
 	measurement, _ := doc.Header.Get("$MEASUREMENT")

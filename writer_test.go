@@ -18,7 +18,9 @@ func encodeString(t *testing.T, doc *Document, opts ...EncodeOption) string {
 }
 
 func sampleDocument() *Document {
-	doc := NewDocument()
+	// The R12 sample: the tests that compare its output expect LF endings and
+	// no handles.
+	doc := NewDocumentVersion(VersionR12)
 	doc.Tables.EnsureLayer("STR-BEAMS", 1, "CONTINUOUS")
 	doc.Tables.EnsureLayer("STR-PANELS", 3, "CONTINUOUS")
 	doc.Blocks = []*Block{{
@@ -57,7 +59,7 @@ func sampleDocument() *Document {
 func TestEncodeMinimal(t *testing.T) {
 	t.Parallel()
 
-	doc := NewDocument()
+	doc := NewDocumentVersion(VersionR12)
 	doc.Entities = []Entity{&Line{Start: Point3D{}, End: Point3D{X: 5}}}
 
 	out := encodeString(t, doc)
@@ -254,7 +256,7 @@ func TestEncodeNilArguments(t *testing.T) {
 func TestEncodeAddsMissingLayer(t *testing.T) {
 	t.Parallel()
 
-	doc := NewDocument()
+	doc := NewDocumentVersion(VersionR12)
 	doc.Entities = []Entity{&Line{EntityCommon: EntityCommon{LayerName: "STR-COLUMNS"}, End: Point3D{X: 3}}}
 
 	out := encodeString(t, doc)
@@ -280,7 +282,7 @@ func TestEncodeAddsMissingLayer(t *testing.T) {
 func TestEncodeWithPrecision(t *testing.T) {
 	t.Parallel()
 
-	doc := NewDocument()
+	doc := NewDocumentVersion(VersionR12)
 	doc.Entities = []Entity{&Point{Position: Point3D{X: 1.23456, Y: 0.0001}}}
 
 	out := encodeString(t, doc, WithPrecision(2))
@@ -295,7 +297,7 @@ func TestEncodeWithPrecision(t *testing.T) {
 func TestEncodeHandles(t *testing.T) {
 	t.Parallel()
 
-	doc := NewDocument()
+	doc := NewDocumentVersion(VersionR12)
 	doc.Entities = []Entity{
 		&Line{EntityCommon: EntityCommon{Handle: "10"}, End: Point3D{X: 1}},
 		&Line{End: Point3D{X: 2}},

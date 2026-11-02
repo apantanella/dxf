@@ -2,7 +2,7 @@
 
 ## Stato
 
-Proposta, 2026-11-02. Da confermare. Adottata in via provvisoria dalle fasi di sviluppo in corso. Scelta di T9 (scrittura come R12) registrata in fondo.
+Confermata, 2026-11-02 (F2, T0). Adottata dalle fasi di sviluppo. Scelta di T9 (scrittura come R12) registrata in fondo.
 
 ## Contesto
 

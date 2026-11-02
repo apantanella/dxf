@@ -1175,15 +1175,6 @@ func (mw *modernWriter) writeInsert(in *Insert, container Handle, inBlock bool) 
 		mw.writeRecord(rec{
 			typ: "ATTRIB", handle: atext, owner: mw.childOwner(a.Owner, handle), subs: asubs, layer: c.LayerName,
 			paper: paper, raw: a.Raw, rawSub: a.RawSubclass,
-			// The reader (decodeAttribute) takes the 72 of AcDbAttribute, which
-			// R2018 files write after the 71 (attribute type), for the
-			// horizontal alignment. A zero would vanish and the tag sequence
-			// of the file with it: write it back after the raw groups.
-			after: func(sub string, _ int) {
-				if sub == "AcDbAttribute" && a.HAlign == 0 && rawHas(a.Raw, 71) && !rawHas(a.Raw, 72) {
-					mw.groupInt(groupHAlign, 0)
-				}
-			},
 		}, func(sub string, occ int) {
 			switch {
 			case sub == "AcDbText" && occ == 0:

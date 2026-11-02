@@ -1,6 +1,6 @@
-// Command dxfgen writes DXF verification files. The files are DXF R12 ASCII,
-// the version of dxf.NewDocument; other versions are written by programs that
-// call dxf.Encode with dxf.WithVersion.
+// Command dxfgen writes DXF verification files. The files are DXF R2013 ASCII,
+// the version of dxf.NewDocument since F2; other versions are written by
+// programs that call dxf.Encode with dxf.WithVersion.
 //
 // It generates two kinds of document:
 //

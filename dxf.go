@@ -106,21 +106,21 @@ type Document struct {
 	Diagnostics     []Diagnostic
 }
 
-// NewDocument returns an empty R12 document with the default header and tables.
+// NewDocument returns an empty R2013 document with the default header. Since F2
+// the default version is R2013 (ADR 0002): the entities F2 adds (LWPOLYLINE,
+// MTEXT, HATCH, ...) do not exist in R12. The symbol tables are not stored in
+// the document: Encode adds the ones a valid file needs. Use
+// NewDocumentVersion(VersionR12) for an empty R12 document, which also carries
+// the default tables LAYER 0, LTYPE CONTINUOUS and STYLE STANDARD.
 func NewDocument() *Document {
-	doc := &Document{Version: VersionR12, Header: Header{Variables: map[string]Variable{}}}
-	doc.Header.Set("$ACADVER", 1, VersionR12)
-	doc.Tables.EnsureLayer("0", 7, "CONTINUOUS")
-	doc.Tables.EnsureLinetype("CONTINUOUS")
-	doc.Tables.EnsureStyle("STANDARD")
-	return doc
+	return NewDocumentVersion(VersionR2013)
 }
 
 // NewDocumentVersion returns an empty document of the given version with the
 // default header of the reference file v00 (docs/dxf-r2013.md): $INSBASE,
 // $LIMMIN, $LIMMAX, $LTSCALE, $TEXTSTYLE, $CLAYER, $INSUNITS (4, millimetres),
-// $MEASUREMENT (1, metric) and $DWGCODEPAGE. VersionR12 gives the same document
-// as NewDocument.
+// $MEASUREMENT (1, metric) and $DWGCODEPAGE. VersionR12 gives an empty R12
+// document with the default tables LAYER 0, LTYPE CONTINUOUS and STYLE STANDARD.
 //
 // For the versions from R2000 on the tables, dictionaries, layouts and classes
 // are not stored in the document: Encode adds the ones that are missing, so the
@@ -130,9 +130,6 @@ func NewDocument() *Document {
 // A version Encode cannot write (for example VersionR14) yields a document whose
 // Version is v as given, and Encode then returns an error.
 func NewDocumentVersion(v string) *Document {
-	if c, ok := canonicalVersion(v); ok && c == VersionR12 {
-		return NewDocument()
-	}
 	version := v
 	if c, ok := canonicalVersion(v); ok {
 		version = c
@@ -140,6 +137,12 @@ func NewDocumentVersion(v string) *Document {
 	doc := &Document{Version: version, Header: Header{Variables: map[string]Variable{}}}
 	h := &doc.Header
 	h.Set("$ACADVER", 1, version)
+	if version == VersionR12 {
+		doc.Tables.EnsureLayer("0", 7, "CONTINUOUS")
+		doc.Tables.EnsureLinetype("CONTINUOUS")
+		doc.Tables.EnsureStyle("STANDARD")
+		return doc
+	}
 	h.Set("$DWGCODEPAGE", 3, defaultCodePage)
 	h.Variables["$INSBASE"] = Variable{Name: "$INSBASE", Groups: []Group{{Code: 10, Value: "0.0"}, {Code: 20, Value: "0.0"}, {Code: 30, Value: "0.0"}}}
 	h.Variables["$LIMMIN"] = Variable{Name: "$LIMMIN", Groups: []Group{{Code: 10, Value: "0.0"}, {Code: 20, Value: "0.0"}}}

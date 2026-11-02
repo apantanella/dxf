@@ -305,7 +305,7 @@ func TestR11NonRepresentableContent(t *testing.T) {
 		}
 	}
 	// An R12 entity the package does not interpret has no subclass markers.
-	r12 := NewDocument()
+	r12 := NewDocumentVersion(VersionR12)
 	r12.Entities = []Entity{&RawEntity{EntityCommon: EntityCommon{LayerName: "0"}, TypeName: "VIEWPORT", Groups: []Group{{Code: 40, Value: "1"}}}}
 	check("R12 raw entity as R2013", r12, WithVersion(VersionR2013))
 	// Polygon and polyface meshes cannot be created (their counts are not modelled).
@@ -316,10 +316,10 @@ func TestR11NonRepresentableContent(t *testing.T) {
 	for _, path := range []string{"testdata/oracle/r2013-entities.dxf", "testdata/t1/v00-baseline.dxf"} {
 		check(path+" as R12", t9Decode(t, t9ReadFile(t, path)), WithVersion(VersionR12))
 	}
-	modernEntity := NewDocument()
+	modernEntity := NewDocumentVersion(VersionR12)
 	modernEntity.Entities = []Entity{&RawEntity{TypeName: "LWPOLYLINE", Verbatim: true, Groups: []Group{{Code: 5, Value: "A"}, {Code: 100, Value: "AcDbEntity"}}}}
 	check("verbatim entity as R12", modernEntity)
-	rawObj := NewDocument()
+	rawObj := NewDocumentVersion(VersionR12)
 	rawObj.Objects = []Object{&RawObject{TypeName: "XRECORD", Groups: []Group{{Code: 5, Value: "A"}}}}
 	check("RawObject as R12", rawObj)
 	// The message names the element.
@@ -332,7 +332,7 @@ func TestR11NonRepresentableContent(t *testing.T) {
 		t.Errorf("error does not name the entity: %v", err)
 	}
 	// Objects and classes that are only structure are ignored by the R12 writer (T8).
-	ok := NewDocument()
+	ok := NewDocumentVersion(VersionR12)
 	ok.Classes = []Class{{DXFName: "X", CppName: "Y", AppName: "Z"}}
 	ok.Objects = []Object{&Dictionary{Handle: "1"}}
 	t9Encode(t, ok)

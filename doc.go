@@ -20,8 +20,8 @@
 //
 //   - Decode reads a DXF ASCII stream into a Document.
 //   - Encode writes a Document; WithVersion chooses the version written.
-//   - NewDocument returns an empty R12 document; NewDocumentVersion returns an
-//     empty document of the given version.
+//   - NewDocument returns an empty R2013 document; NewDocumentVersion returns an
+//     empty document of the given version (VersionR12 included).
 //   - Handle, Document.Lookup and Document.ValidateHandles give access to the
 //     handles (group code 5) and the owners (330) of R13+ files.
 //   - Document.Classes and Document.Objects hold the CLASSES and OBJECTS

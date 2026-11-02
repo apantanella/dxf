@@ -565,6 +565,75 @@ func (r *r2013Tables) SetLayoutHandles(model, paper Handle) {
 	set(namePaperSpace, paper)
 }
 
+// xdataAppIDs returns the application names used by the extended data (group
+// code 1001) of the document, in the order they first appear. Every name must
+// have an APPID record. The scan covers entities (and the vertices and
+// attributes of the composite ones), block entities, objects, table records and
+// the sections kept verbatim.
+func xdataAppIDs(doc *Document) []string {
+	seen := map[string]bool{}
+	var out []string
+	add := func(groups []Group) {
+		for _, g := range groups {
+			if g.Code != 1001 {
+				continue
+			}
+			name := strings.TrimSpace(g.Value)
+			if name == "" || seen[strings.ToUpper(name)] {
+				continue
+			}
+			seen[strings.ToUpper(name)] = true
+			out = append(out, name)
+		}
+	}
+	addEntities := func(entities []Entity) {
+		for _, e := range entities {
+			if e == nil {
+				continue
+			}
+			if raw, ok := e.(*RawEntity); ok {
+				add(raw.Groups)
+			} else if c := e.Common(); c != nil {
+				add(c.Raw)
+			}
+			switch t := e.(type) {
+			case *Polyline:
+				for _, v := range t.Vertices {
+					add(v.Raw)
+				}
+			case *Insert:
+				for _, a := range t.Attributes {
+					add(a.Raw)
+				}
+			}
+		}
+	}
+	addEntities(doc.Entities)
+	for _, b := range doc.Blocks {
+		if b == nil {
+			continue
+		}
+		add(b.Raw)
+		addEntities(b.Entities)
+	}
+	for _, o := range doc.Objects {
+		add(objectGroups(o))
+	}
+	for _, tb := range doc.Tables.Items {
+		if tb == nil {
+			continue
+		}
+		add(tb.Raw)
+		for _, rec := range tb.Records {
+			add(rec.Groups)
+		}
+	}
+	for _, sec := range doc.UnknownSections {
+		add(sec.Groups)
+	}
+	return out
+}
+
 // prepareR2013Tables returns a copy of doc.Tables ready to be written as R2013:
 //
 //   - the tables VPORT, LTYPE, LAYER, STYLE, VIEW, UCS, APPID, DIMSTYLE and
@@ -575,6 +644,8 @@ func (r *r2013Tables) SetLayoutHandles(model, paper Handle) {
 //     second Continuous. Missing records are put first in their table;
 //   - the layers used by entities and blocks and the standard linetypes they
 //     use are added, as in the R12 writer;
+//   - an APPID record is added for every application named by extended data
+//     (group code 1001) that the document does not define (see xdataAppIDs);
 //   - there is a BLOCK_RECORD for *Model_Space, *Paper_Space and every Block
 //     of doc.Blocks that has none (records in doc.Tables.BlockRecords that the
 //     table lacks are used instead of the defaults);
@@ -630,6 +701,15 @@ func prepareR2013Tables(doc *Document, next func() Handle) *r2013Tables {
 	}
 	for _, layer := range referencedLayers(doc) {
 		out.EnsureLayer(layer, 7, continuous)
+	}
+
+	// 2b. APPID records for the applications used by extended data (1001).
+	// Dimensions and MLEADERs refer to ACAD and ACAD_DSTYLE_* there, and a file
+	// that uses an application it does not define is rejected by some CAD
+	// applications. The R12 path is left unchanged: there the caller keeps
+	// calling EnsureAppID.
+	for _, app := range xdataAppIDs(doc) {
+		out.EnsureAppID(app)
 	}
 
 	// 3. BLOCK_RECORD records.

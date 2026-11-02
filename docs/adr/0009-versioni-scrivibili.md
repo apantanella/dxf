@@ -2,7 +2,7 @@
 
 ## Stato
 
-Proposta, 2026-11-02 (T9). Adottata in via provvisoria.
+Confermata, 2026-11-02 (F2, T0). Adottata da T9.
 
 ## Contesto
 

@@ -6,15 +6,16 @@ Le cartelle sono due: `docs/decisions/` raccoglie gli ADR delle fasi 0-6 (format
 
 | N. | Titolo | Stato |
 |----|--------|-------|
-| [0001](0001-tipo-del-tag.md) | Tipo del tag: `tags.Tag{Code int; Value string}` | Proposta (2026-11-02), adottata in via provvisoria |
+| [0001](0001-tipo-del-tag.md) | Tipo del tag: `tags.Tag{Code int; Value string}` | Confermata (2026-11-02) |
 | [0002](0002-evoluzione-api-sul-posto.md) | Evoluzione dell'API sul posto, senza modulo v2 | Confermata (2026-11-02) |
-| [0003](0003-modello-unico-per-tutte-le-versioni.md) | Un solo modello per tutte le versioni | Proposta (2026-11-02), adottata in via provvisoria |
+| [0003](0003-modello-unico-per-tutte-le-versioni.md) | Un solo modello per tutte le versioni | Confermata (2026-11-02) |
 | [0004](0004-codifica-dei-caratteri.md) | Codifica dei caratteri | Confermata (2026-11-02) |
 | [0005](0005-definizione-di-round-trip.md) | Definizione di round-trip | Confermata (2026-11-02) |
-| [0006](0006-handle.md) | Handle | Proposta (2026-11-02), adottata in via provvisoria |
-| [0007](0007-contenuto-non-interpretato.md) | Contenuto non interpretato: `RawEntity` e `RawObject` | Proposta (2026-11-02), adottata in via provvisoria |
+| [0006](0006-handle.md) | Handle | Confermata (2026-11-02) |
+| [0007](0007-contenuto-non-interpretato.md) | Contenuto non interpretato: `RawEntity` e `RawObject` | Confermata (2026-11-02) |
 | [0008](0008-dxf-binario-non-supportato.md) | DXF binario non letto in F1 | Confermata (2026-11-02) |
-| [0009](0009-versioni-scrivibili.md) | Versioni scrivibili e differenze tra R2000 e R2018 | Proposta (2026-11-02), adottata in via provvisoria |
+| [0009](0009-versioni-scrivibili.md) | Versioni scrivibili e differenze tra R2000 e R2018 | Confermata (2026-11-02) |
+| [0010](0010-entita-di-f2.md) | Entità di F2: colore vero, spessore, entità nuove (D9–D14, D15, D16) | Proposta (2026-11-02), adottata in via provvisoria |
 
 Formato di ogni ADR: Titolo, Stato, Contesto, Decisione, Alternative scartate, Conseguenze. Un ADR confermato non si modifica: una decisione diversa si registra con un nuovo ADR che lo sostituisce.
 

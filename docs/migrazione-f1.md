@@ -35,7 +35,7 @@ Per chi usava l'API del package `dxf` alla chiusura di F0 (solo R12). Non esiste
 5. **Chi chiamava `Encode` con `Version` diversa da R12 e si aspettava `*VersionError`** ora ottiene un file R2000-R2018, tranne per R13/R14 e per i valori non riconosciuti. `errors.As(err, &ve)` con `var ve *dxf.VersionError` funziona ancora per questi ultimi.
 6. **Handle di tipo stringa.** Il codice che assegnava `Handle: "2A"` continua a compilare. Per lavorare con il valore numerico usare `HandleValue()` e `SetHandle(h)`; `SetHandle(0)` svuota il campo. Il testo letto (maiuscole, zeri iniziali) si conserva finche' non lo si cambia.
 7. **Scrittura R12.** Output byte per byte invariato (suite `regression_f0_test.go`).
-8. **`NewDocument()`.** Resta R12. ADR 0002 prevede il passaggio a R2013 alla chiusura di F1 (dopo G1), con una nota di rilascio: quel cambio modifichera' l'output di chi non passa opzioni. Per non dipendere dal valore predefinito usare `NewDocumentVersion(dxf.VersionR12)` o `NewDocumentVersion(dxf.VersionR2013)`.
+8. **`NewDocument()`.** In F1 resta R12. ADR 0002 prevedeva il passaggio a R2013 alla chiusura di F1 (dopo G1): il passaggio e' avvenuto in F2, task T0 (vedi [migrazione-f2.md](migrazione-f2.md) e la voce di CHANGELOG). Per non dipendere dal valore predefinito usare `NewDocumentVersion(dxf.VersionR12)` o `NewDocumentVersion(dxf.VersionR2013)`.
 
 ## Esempi
 

@@ -2,7 +2,7 @@
 
 ## Stato
 
-Proposta, 2026-11-02. Da confermare. Adottata in via provvisoria dalle fasi di sviluppo in corso (T5).
+Confermata, 2026-11-02 (F2, T0). Adottata dalle fasi di sviluppo (T5); conferma l'opzione (b): `Handle string` resta il testo letto, con `HandleValue()` e `SetHandle(Handle)`, ed `EntityCommon.Owner` è di tipo `Handle`.
 
 ## Contesto
 

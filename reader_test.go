@@ -111,8 +111,9 @@ func TestDecodeUnknownEntityAndSection(t *testing.T) {
 		"0\nSECTION\n2\nCLASSES\n0\nCLASS\n1\nSPLINE\n0\nENDSEC\n" +
 		"0\nSECTION\n2\nENTITIES\n0\nSPLINE\n8\n0\n70\n8\n0\nENDSEC\n0\nEOF\n"
 	doc := decodeString(t, input)
-	if len(doc.UnknownSections) != 1 || doc.UnknownSections[0].Name != "CLASSES" {
-		t.Fatalf("unknown sections = %+v", doc.UnknownSections)
+	// CLASSES is interpreted since T8.
+	if len(doc.UnknownSections) != 0 || len(doc.Classes) != 1 || doc.Classes[0].DXFName != "SPLINE" {
+		t.Fatalf("unknown sections = %+v, classes = %+v", doc.UnknownSections, doc.Classes)
 	}
 	raw, ok := doc.Entities[0].(*RawEntity)
 	if !ok {
@@ -138,7 +139,7 @@ func TestDecodeErrors(t *testing.T) {
 		},
 		{
 			name:    "unsupported version",
-			input:   strings.Replace(minimalDXF, "AC1009", "AC1015", 1),
+			input:   strings.Replace(minimalDXF, "AC1009", "AC1099", 1),
 			wantErr: ErrUnsupportedVersion,
 		},
 		{
@@ -177,10 +178,10 @@ func TestDecodeErrors(t *testing.T) {
 func TestDecodeLenient(t *testing.T) {
 	t.Parallel()
 
-	input := strings.Replace(minimalDXF, "AC1009", "AC1015", 1)
+	input := strings.Replace(minimalDXF, "AC1009", "AC1099", 1)
 	input = strings.Replace(input, "0\nEOF\n", "", 1)
 	doc := decodeString(t, input, WithLenient())
-	if doc.Version != "AC1015" {
+	if doc.Version != "AC1099" {
 		t.Errorf("Version = %q", doc.Version)
 	}
 	if len(doc.Diagnostics) < 2 {

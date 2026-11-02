@@ -16,6 +16,16 @@ versioning follows [Semantic Versioning](https://semver.org/).
   `SeqendHandle`, `EndHandle`. Decode and Encode reject duplicate handles.
 - ENDBLK and SEQEND handles are kept, so a written file reads back identically.
 - ADR 0001-0008 in `docs/adr` and the R2013 notes in `docs/dxf-r2013.md`.
+- Reader for R12 to R2018: `Subclasses`, `RawSubclass`, `Document.Objects`,
+  `RawObject`, `RawEntity.Verbatim`; binary DXF is rejected with `ErrNotDXF`.
+- Typed table views (`Layer`, `Linetype`, `TextStyle`, `BlockRecord`) and
+  `LoadBlockRecords`.
+- CLASSES, DICTIONARY, LAYOUT and ACDBPLACEHOLDER are read as typed values.
+- R2013 writer (`WithVersion`, `NewDocumentVersion`) with subclass markers,
+  BLOCK_RECORD, LAYOUT and OBJECTS; R2000 to R2018 are writable (ADR 0009).
+- Verification tools: `scripts/oracle_check.py`, `scripts/tagdiff.py`,
+  synthetic fixtures in `testdata/oracle`, files to open by hand in
+  `testdata/g1`.
 
 ### Added
 

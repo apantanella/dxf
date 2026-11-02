@@ -116,6 +116,9 @@ func (d *Document) walkHandles(fn func(handleRef) bool) bool {
 	if walkEntityHandles("ENTITIES", d.Entities, fn) {
 		return true
 	}
+	if walkObjectHandles(d.Objects, fn) {
+		return true
+	}
 	for _, sec := range d.UnknownSections {
 		for _, g := range sec.Groups {
 			if g.Code == groupHandle && fn(handleRef{value: g.Value, section: sec.Name, entity: sec.Name}) {
@@ -138,6 +141,39 @@ func walkGroupHandles(groups []Group, section, entity string, obj any, fn func(h
 			return true
 		}
 		first = false
+	}
+	return false
+}
+
+// walkObjectHandles reports the handles of the OBJECTS section. A RawObject
+// keeps its handle in Groups, so the first code 5 group is the primary handle
+// and the text is reported as stored.
+func walkObjectHandles(objects []Object, fn func(handleRef) bool) bool {
+	for _, obj := range objects {
+		if obj == nil {
+			continue
+		}
+		if raw, ok := obj.(*RawObject); ok {
+			if raw == nil {
+				continue
+			}
+			if walkGroupHandles(raw.Groups, "OBJECTS", raw.TypeName, raw, fn) {
+				return true
+			}
+			continue
+		}
+		if t, ok := obj.(interface{ handleText() string }); ok {
+			// Typed objects report their handle text as stored, like a
+			// RawObject, so an invalid handle is diagnosed the same way.
+			if text := t.handleText(); text != "" && fn(handleRef{value: text, obj: obj, section: "OBJECTS", entity: obj.Type(), primary: true}) {
+				return true
+			}
+			continue
+		}
+		if h := obj.ObjectHandle(); !h.IsZero() &&
+			fn(handleRef{value: h.String(), obj: obj, section: "OBJECTS", entity: obj.Type(), primary: true}) {
+			return true
+		}
 	}
 	return false
 }
@@ -206,7 +242,9 @@ func walkEntityHandles(section string, entities []Entity, fn func(handleRef) boo
 //   - an Entity (the pointer stored in Entities or in Block.Entities),
 //   - *Vertex or *Attribute (pointing into the Vertices/Attributes slice of
 //     the owning entity),
-//   - *Block, *Table or *Record (a record of a symbol table).
+//   - *Block, *Table or *Record (a record of a symbol table),
+//   - an Object of the OBJECTS section (*RawObject for the ones the package
+//     does not interpret).
 //
 // The handles of SEQEND and ENDBLK records are not returned: they carry no
 // data of their own. When a (malformed) document uses the same handle twice,

@@ -16,6 +16,16 @@ type EncodeOption func(*encodeConfig)
 
 type encodeConfig struct {
 	precision int
+	version   string
+}
+
+// WithVersion sets the version Encode writes, overriding Document.Version and
+// the $ACADVER of the header. Writable versions are VersionR12, VersionR2000,
+// VersionR2004, VersionR2007, VersionR2010, VersionR2013 and VersionR2018 (see
+// ADR 0009); any other value makes Encode fail with an error that satisfies
+// errors.Is(err, ErrUnsupportedVersion) and errors.Is(err, ErrValidation).
+func WithVersion(version string) EncodeOption {
+	return func(c *encodeConfig) { c.version = version }
 }
 
 // WithPrecision sets the number of digits after the decimal point for real
@@ -24,11 +34,22 @@ func WithPrecision(digits int) EncodeOption {
 	return func(c *encodeConfig) { c.precision = digits }
 }
 
-// Encode writes doc as a DXF R12 ASCII stream.
+// Encode writes doc as a DXF ASCII stream.
 //
-// The writer emits HEADER, TABLES, BLOCKS, ENTITIES and EOF. Missing layers are
-// added automatically. A document that cannot be represented as R12 is rejected
-// with an error that wraps ErrValidation.
+// The version written is WithVersion if given, else Document.Version, else the
+// $ACADVER of the header, else R12. For VersionR12 the writer emits HEADER,
+// TABLES, BLOCKS, ENTITIES and EOF with LF line endings. For the other writable
+// versions (R2000 to R2018) it emits HEADER, CLASSES, TABLES, BLOCKS, ENTITIES,
+// OBJECTS and EOF with handles, owners and subclass markers, CR LF line endings
+// and group codes right-aligned on three columns, as in the reference files
+// tested in ZWCAD (docs/dxf-r2013.md). Missing layers, tables, dictionaries and
+// layouts are added automatically; the document itself is never modified.
+//
+// A document that cannot be represented in the requested version is rejected
+// with an error that wraps ErrValidation: for example a document that holds
+// R13+ content (subclass markers, verbatim records, objects not interpreted)
+// written as R12, or an entity without subclass markers that this package does
+// not interpret written as R2000 or later (ADR 0007).
 func Encode(w io.Writer, doc *Document, opts ...EncodeOption) error {
 	if w == nil {
 		return &ValidationError{Reason: "nil writer"}
@@ -42,8 +63,18 @@ func Encode(w io.Writer, doc *Document, opts ...EncodeOption) error {
 			opt(&cfg)
 		}
 	}
+	version, err := resolveWriteVersion(doc, cfg)
+	if err != nil {
+		return err
+	}
+	if version != VersionR12 {
+		return encodeModern(w, doc, cfg, version)
+	}
 	if err := validateDocument(doc); err != nil {
 		return err
+	}
+	if reason := r12Incompatible(doc); reason != "" {
+		return &ValidationError{Reason: reason + ": convert the document to R2000 or later or rebuild it without that content"}
 	}
 	ew := &entityWriter{tw: tags.NewWriter(w), cfg: cfg}
 	ew.writeDocument(doc)
@@ -253,10 +284,16 @@ func (ew *entityWriter) writeEntity(entity Entity) {
 		return
 	}
 	ew.group(groupType, entity.Type())
-	switch entity.(type) {
+	switch typed := entity.(type) {
 	case *Polyline, *Insert:
 		// Composite entities write the common groups themselves, after their
 		// own header, so that they are not written twice.
+	case *RawEntity:
+		// A verbatim RawEntity (read from R13 or later) already holds every
+		// group, handle and layer included.
+		if !typed.Verbatim {
+			ew.writeCommon(entity.Common())
+		}
 	default:
 		ew.writeCommon(entity.Common())
 	}
@@ -524,13 +561,9 @@ func (ew *entityWriter) writeAttribute(attribute *Attribute) {
 	}
 }
 
+// validateDocument checks the content of doc, whatever the version written.
+// The version itself is checked by resolveWriteVersion.
 func validateDocument(doc *Document) error {
-	if doc.Version != "" && !strings.EqualFold(doc.Version, VersionR12) {
-		return &VersionError{Found: doc.Version}
-	}
-	if version, ok := doc.Header.Get("$ACADVER"); ok && !strings.EqualFold(version, VersionR12) {
-		return &VersionError{Found: version}
-	}
 	if err := checkLinetypes(doc); err != nil {
 		return err
 	}

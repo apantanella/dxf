@@ -11,9 +11,12 @@ import (
 // Sentinel errors returned by the package. Test them with errors.Is.
 var (
 	// ErrNotDXF reports a stream that does not start with a DXF SECTION record.
+	// A binary DXF file (not supported) is reported with this error too; its
+	// message says so.
 	ErrNotDXF = errors.New("dxf: not a DXF stream")
 
-	// ErrUnsupportedVersion reports a $ACADVER value other than AC1009.
+	// ErrUnsupportedVersion reports a $ACADVER value other than the nine
+	// supported ones (AC1009 to AC1032, see the Version constants).
 	ErrUnsupportedVersion = errors.New("dxf: unsupported DXF version")
 
 	// ErrSyntax reports a malformed group code/value pair or section structure.
@@ -85,7 +88,8 @@ type SyntaxError = tags.SyntaxError
 // package tags.
 type LimitError = tags.LimitError
 
-// VersionError reports a $ACADVER value different from AC1009.
+// VersionError reports a $ACADVER value that is not one of the supported
+// versions (VersionR12 to VersionR2018).
 type VersionError struct {
 	Found string
 }
@@ -95,7 +99,7 @@ func (e *VersionError) Error() string {
 	if e.Found == "" {
 		return "dxf: unsupported version: missing $ACADVER"
 	}
-	return fmt.Sprintf("dxf: unsupported version: %q (expected %s)", e.Found, VersionR12)
+	return fmt.Sprintf("dxf: unsupported version: %q (supported: %s)", e.Found, strings.Join(supportedVersions, ", "))
 }
 
 // Unwrap returns ErrUnsupportedVersion.

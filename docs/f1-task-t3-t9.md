@@ -409,6 +409,14 @@ Comportamento:
 
 **Criterio di fine.** Test verdi; OBJECTS e CLASSES del file vuoto uguali, a meno degli handle, a quelle di `v00`; fixture "Oggetti non interpretati" riscritta senza differenze secondo ADR 0005.
 
+**Stato di implementazione (lato lettura e preparazione, senza `writer.go`).**
+
+- `Document.Classes []Class` (in `classes.go`); `Dictionary`, `Placeholder`, `Layout` (in `objects.go` e `layouts.go`) sono i soli oggetti interpretati, tutti gli altri restano `*RawObject`. Se la sezione CLASSES non è una semplice lista di record `CLASS` resta in `UnknownSections`.
+- Ogni tipo interpretato conserva i gruppi letti in `Raw` e i campi tipizzati sono una vista: `Groups()` parte da `Raw` e riscrive solo i valori che non concordano più con i campi (testo degli handle, riferimenti, reattori e dati estesi restano). `Dictionary.Raw` e `Layout.PlotSettings` hanno quindi questo significato, non quello di "gruppi non interpretati" della proposta.
+- Per T9: `prepareR2013Objects(doc, tbl, next)` (in `layouts.go`) va chiamata dopo `prepareR2013Tables` con lo stesso contatore. Restituisce `Classes` e `Objects` nell'ordine di scrittura (scrivere ogni oggetto come `0 <Type()>` seguito da `objectGroups(o)`, ogni classe come `0 CLASS` seguito da `Class.Groups()`), imposta il `340` dei due BLOCK_RECORD (`SetLayoutHandles`) e aggiunge il `390` ai layer solo quando genera `Normal`.
+- Il documento non viene modificato. Gli oggetti letti restano nella loro posizione; quelli generati si aggiungono dopo (la radice, se manca, è il primo oggetto).
+- Gli oggetti `ACAD_MLINESTYLE` e `ACAD_PLOTSETTINGS` non sono generati: non compaiono in `v00` e non sono in questo documento.
+
 ---
 
 ## T9 – Writer R2013 con marcatori; R12 invariato
@@ -459,3 +467,7 @@ Comportamento:
 8. Benchmark di scrittura entro R14.
 
 **Criterio di fine.** Test verdi; i file scritti (vuoto, entità supportate, `structural-frame.dxf` convertito) pronti per la prova G1 in ZWCAD 2023 e CadCraft 0.16.0 (T11). La prova nei CAD non fa parte di T9.
+
+### Stato di T9 (implementato)
+
+Codice in `writer_r2013.go`; `Encode` accetta `WithVersion(v)`; `NewDocumentVersion(v)` in `dxf.go`. Errore per versioni non scrivibili: soddisfa `ErrUnsupportedVersion` e `ErrValidation`. Mesh POLYLINE (flag 16/64): scrivibili solo se letti da un file R13+ (marcatori conservati), altrimenti `ErrValidation`. File per la prova G1 in `testdata/g1/`. Decisioni: ADR 0007 (rifiuto), ADR 0009 (versioni, float).

@@ -1,11 +1,19 @@
 package dxf
 
 import (
+	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
 	"strings"
 )
+
+// binarySignature is the beginning of a binary DXF file: the ASCII text
+// "AutoCAD Binary DXF" followed by CR LF, 0x1A and NUL. Only the text is
+// compared, because it is unambiguous on its own. The trailing bytes are
+// documented in the ADR 0008 and not yet checked against a real file.
+var binarySignature = []byte("AutoCAD Binary DXF")
 
 // DecodeOption configures Decode.
 type DecodeOption func(*decodeConfig)
@@ -27,11 +35,18 @@ func WithLimits(limits Limits) DecodeOption {
 	return func(c *decodeConfig) { c.limits = limits }
 }
 
-// Decode reads a DXF R12 ASCII stream into a Document.
+// Decode reads a DXF ASCII stream, R12 to R2018, into a Document.
 //
 // The decoder accepts LF and CRLF line endings, optional handles, and unknown
-// entities, which are preserved as RawEntity. It rejects versions other than
-// AC1009 unless WithLenient is used.
+// entities and objects, which are preserved as RawEntity and RawObject. It
+// rejects a $ACADVER value other than the nine supported ones (VersionR12 to
+// VersionR2018) with a *VersionError unless WithLenient is used, which turns
+// the error into a warning. R13 and R14 are read on a best-effort basis.
+//
+// From R13 on the subclass markers (group code 100), the 102 { ... } groups,
+// the owner (330) and the extended data (1001 and following) are kept: see
+// EntityCommon. A binary DXF file is not supported: Decode returns an error
+// that satisfies errors.Is(err, ErrNotDXF) and says so.
 func Decode(r io.Reader, opts ...DecodeOption) (*Document, error) {
 	if r == nil {
 		return nil, &ValidationError{Reason: "nil reader"}
@@ -43,7 +58,12 @@ func Decode(r io.Reader, opts ...DecodeOption) (*Document, error) {
 		}
 	}
 	cfg.limits = normalizeLimits(cfg.limits)
-	p := &parser{gr: newGroupReader(r, cfg.limits), cfg: cfg}
+	br := bufio.NewReader(r)
+	if head, _ := br.Peek(len(binarySignature)); bytes.Equal(head, binarySignature) {
+		return nil, fmt.Errorf("%w: the file is binary DXF (it starts with %q), which is not supported; save it as ASCII DXF",
+			ErrNotDXF, binarySignature)
+	}
+	p := &parser{gr: newGroupReader(br, cfg.limits), cfg: cfg}
 	return p.decode()
 }
 
@@ -71,6 +91,10 @@ type parser struct {
 	section    string
 	sawEOF     bool
 	sawSection bool
+	// modern is true when $ACADVER, read from the HEADER, is R13 or later:
+	// records then carry subclass markers and owners. A record that has markers
+	// is read as such even if the HEADER is missing.
+	modern bool
 }
 
 func (p *parser) decode() (*Document, error) {
@@ -123,7 +147,13 @@ func (p *parser) readSection() error {
 
 	switch name {
 	case "HEADER":
-		return p.readHeader()
+		if err := p.readHeader(); err != nil {
+			return err
+		}
+		if v, ok := p.doc.Header.Get("$ACADVER"); ok {
+			p.modern = isModernVersion(v)
+		}
+		return nil
 	case "TABLES":
 		return p.readTables()
 	case "BLOCKS":
@@ -135,6 +165,26 @@ func (p *parser) readSection() error {
 		}
 		p.doc.Entities = entities
 		return nil
+	case "OBJECTS":
+		objects, err := p.readObjects()
+		if err != nil {
+			return err
+		}
+		p.doc.Objects = append(p.doc.Objects, objects...)
+		return nil
+	case "CLASSES":
+		groups, err := p.readRawSection()
+		if err != nil {
+			return err
+		}
+		if classes, ok := classesFromGroups(groups); ok {
+			p.doc.Classes = append(p.doc.Classes, classes...)
+			return nil
+		}
+		// Not a plain list of CLASS records: keep the section as it is.
+		p.doc.UnknownSections = append(p.doc.UnknownSections, RawSection{Name: name, Groups: groups})
+		p.addDiagnostic(SeverityInfo, p.gr.lastLine, name, "", "section not interpreted, preserved as raw data")
+		return nil
 	default:
 		groups, err := p.readRawSection()
 		if err != nil {
@@ -143,6 +193,39 @@ func (p *parser) readSection() error {
 		p.doc.UnknownSections = append(p.doc.UnknownSections, RawSection{Name: name, Groups: groups})
 		p.addDiagnostic(SeverityInfo, p.gr.lastLine, name, "", "section not interpreted, preserved as raw data")
 		return nil
+	}
+}
+
+// readObjects reads the OBJECTS section. DICTIONARY, ACDBDICTIONARYWDFLT,
+// ACDBPLACEHOLDER and LAYOUT records become typed objects, every other record a
+// RawObject.
+func (p *parser) readObjects() ([]Object, error) {
+	var out []Object
+	for {
+		grp, ok, err := p.gr.peek()
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return nil, p.syntaxLine(p.gr.lastLine, "OBJECTS", "", "end of stream without ENDSEC")
+		}
+		if grp.Code != groupType {
+			p.gr.next()
+			return nil, p.syntax(grp, "expected a new object (group code 0)")
+		}
+		p.gr.next()
+		typeName := strings.TrimSpace(grp.Value)
+		if strings.EqualFold(typeName, "ENDSEC") {
+			return out, nil
+		}
+		groups, err := p.readGroupList()
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, interpretObject(typeName, groups))
+		if len(out) > p.cfg.limits.MaxEntities {
+			return nil, &LimitError{Kind: "objects", Limit: p.cfg.limits.MaxEntities, Line: p.gr.lastLine}
+		}
 	}
 }
 
@@ -215,6 +298,7 @@ func (p *parser) readTables() error {
 		}
 		name := strings.ToUpper(strings.TrimSpace(grp.Value))
 		if name == "ENDSEC" {
+			p.doc.Tables.LoadBlockRecords()
 			return nil
 		}
 		header, err := p.readGroupList()
@@ -314,13 +398,21 @@ func (p *parser) readBlock() (*Block, error) {
 		p.gr.next()
 		block.Raw = append(block.Raw, grp)
 	}
-	gs := newGroupSet(block.Raw)
+	gs := newGroupSetMode(block.Raw, p.modern)
+	block.Subclasses = gs.names
+	gs.prefer(prefHeader)
+	if h, ok := gs.owner(); ok {
+		block.Owner = h
+	}
+	gs.prefer(prefBlockBegin)
 	if name, ok := gs.str(groupName); ok {
 		block.Name = name
 	}
+	gs.prefer(prefEntity)
 	if layer, ok := gs.str(groupLayer); ok {
 		block.LayerName = layer
 	}
+	gs.prefer(prefBlockBegin)
 	// Code 3 repeats the block name: the writer regenerates it.
 	gs.str(groupName2)
 	if v, ok, err := gs.float(groupX); err != nil {
@@ -344,6 +436,7 @@ func (p *parser) readBlock() (*Block, error) {
 		block.Flags = v
 	}
 	block.Raw = gs.leftovers()
+	block.RawSubclass = gs.leftoverSubclasses()
 	entities, err := p.readEntities("ENDBLK")
 	if err != nil {
 		return nil, err
@@ -353,6 +446,12 @@ func (p *parser) readBlock() (*Block, error) {
 	end, err := p.readGroupList()
 	if err != nil {
 		return nil, err
+	}
+	if p.modern || hasSubclassMarkers(end) {
+		// R13 and later: ENDBLK has an owner, a layer and subclass markers.
+		// The handle goes to EndHandle, the rest is kept as it is.
+		block.EndHandle, block.EndGroups = splitHandle(end)
+		return block, nil
 	}
 	es := newGroupSet(end)
 	if v, ok := es.str(groupHandle); ok {
@@ -434,7 +533,7 @@ func (p *parser) decodeOne(typeName string, groups []Group) (Entity, error) {
 		}
 		p.addDiagnostic(SeverityWarning, p.gr.lastLine, p.section, typeName, "unexpected SEQEND")
 	}
-	return decodeEntity(typeName, groups)
+	return decodeEntityMode(typeName, groups, p.modern)
 }
 
 func (p *parser) readPolyline(groups []Group) (Entity, error) {
@@ -458,7 +557,7 @@ func (p *parser) readPolyline(groups []Group) (Entity, error) {
 			if err != nil {
 				return nil, err
 			}
-			vertex, err := decodeVertex(vertexGroups)
+			vertex, err := decodeVertexMode(vertexGroups, p.modern)
 			if err != nil {
 				return nil, err
 			}
@@ -469,13 +568,14 @@ func (p *parser) readPolyline(groups []Group) (Entity, error) {
 			if err != nil {
 				return nil, err
 			}
-			return decodePolyline("POLYLINE", groups, vertices, seqendHandle(seqend))
+			handle, rest := p.seqendParts(seqend)
+			return decodePolyline(groups, vertices, handle, rest, p.modern)
 		default:
 			if !p.cfg.lenient {
 				return nil, &SyntaxError{Line: p.gr.lastLine, Section: p.section, Entity: "POLYLINE", Reason: "POLYLINE without SEQEND"}
 			}
 			p.addDiagnostic(SeverityWarning, p.gr.lastLine, p.section, "POLYLINE", "POLYLINE without SEQEND")
-			return decodePolyline("POLYLINE", groups, vertices, "")
+			return decodePolyline(groups, vertices, "", nil, p.modern)
 		}
 	}
 }
@@ -483,6 +583,7 @@ func (p *parser) readPolyline(groups []Group) (Entity, error) {
 func (p *parser) readInsert(groups []Group) (Entity, error) {
 	var attributes []Attribute
 	var seqend string
+	var seqendGroups []Group
 	for {
 		grp, ok, err := p.gr.peek()
 		if err != nil {
@@ -499,7 +600,7 @@ func (p *parser) readInsert(groups []Group) (Entity, error) {
 		if err != nil {
 			return nil, err
 		}
-		attribute, err := decodeAttribute(attributeGroups)
+		attribute, err := decodeAttribute(attributeGroups, p.modern)
 		if err != nil {
 			return nil, err
 		}
@@ -521,10 +622,10 @@ func (p *parser) readInsert(groups []Group) (Entity, error) {
 			if err != nil {
 				return nil, err
 			}
-			seqend = seqendHandle(end)
+			seqend, seqendGroups = p.seqendParts(end)
 		}
 	}
-	gs := newGroupSet(groups)
+	gs := newGroupSetMode(groups, p.modern)
 	common, err := gs.common()
 	if err != nil {
 		return nil, err
@@ -534,11 +635,11 @@ func (p *parser) readInsert(groups []Group) (Entity, error) {
 		return nil, err
 	}
 	entity.(*Insert).SeqendHandle = seqend
+	entity.(*Insert).SeqendGroups = seqendGroups
 	return entity, nil
 }
 
-// seqendHandle returns the handle (group code 5) of a SEQEND record. The other
-// groups of SEQEND carry no data and are dropped, as before.
+// seqendHandle returns the handle (group code 5) of a SEQEND record.
 func seqendHandle(groups []Group) string {
 	if v, ok := rawValue(groups, groupHandle); ok {
 		return v
@@ -546,13 +647,42 @@ func seqendHandle(groups []Group) string {
 	return ""
 }
 
+// seqendParts splits the groups of a SEQEND record into its handle and, for
+// R13 and later, the other groups (owner, layer, subclass markers), which are
+// kept. For R12 the other groups carry no data and are dropped, as before.
+func (p *parser) seqendParts(groups []Group) (string, []Group) {
+	if p.modern || hasSubclassMarkers(groups) {
+		return splitHandle(groups)
+	}
+	return seqendHandle(groups), nil
+}
+
+// splitHandle returns the value of the first group code 5 and the remaining
+// groups in their original order.
+func splitHandle(groups []Group) (string, []Group) {
+	handle := ""
+	found := false
+	var rest []Group
+	for _, g := range groups {
+		if !found && g.Code == groupHandle {
+			handle = strings.TrimSpace(g.Value)
+			found = true
+			continue
+		}
+		rest = append(rest, g)
+	}
+	return handle, rest
+}
+
 func (p *parser) finish() (*Document, error) {
 	if !p.sawSection {
 		return nil, ErrNotDXF
 	}
-	if n, first := p.gr.nonASCII(); n > 0 {
+	version, hasVersion := p.doc.Header.Get("$ACADVER")
+	// Text is UTF-8 from R2007 on: non-ASCII bytes are expected there.
+	if n, first := p.gr.nonASCII(); n > 0 && !(hasVersion && strings.ToUpper(version) >= VersionR2007) {
 		p.addDiagnostic(SeverityWarning, first, "", "", fmt.Sprintf(
-			"%d group values contain non-ASCII bytes: R12 text depends on the code page, the bytes are preserved unchanged", n))
+			"%d group values contain non-ASCII bytes: text before R2007 depends on the code page, the bytes are preserved unchanged", n))
 	}
 	if !p.sawEOF {
 		if p.cfg.lenient {
@@ -561,17 +691,20 @@ func (p *parser) finish() (*Document, error) {
 			return nil, &SyntaxError{Line: p.gr.lastLine, Reason: "missing EOF terminator"}
 		}
 	}
-	version, ok := p.doc.Header.Get("$ACADVER")
 	switch {
-	case !ok:
+	case !hasVersion:
 		if p.cfg.lenient {
 			p.addDiagnostic(SeverityWarning, 0, "HEADER", "", "missing $ACADVER variable")
 			p.doc.Version = VersionR12
 		} else {
 			return nil, &SyntaxError{Section: "HEADER", Reason: "missing $ACADVER variable"}
 		}
-	case strings.EqualFold(version, VersionR12):
-		p.doc.Version = VersionR12
+	case isSupported(version):
+		p.doc.Version, _ = canonicalVersion(version)
+		if p.doc.Version == VersionR13 || p.doc.Version == VersionR14 {
+			p.addDiagnostic(SeverityInfo, 0, "HEADER", "", fmt.Sprintf(
+				"version %s is read on a best-effort basis: no real files of this version have been tested", p.doc.Version))
+		}
 	default:
 		if p.cfg.lenient {
 			p.addDiagnostic(SeverityWarning, 0, "HEADER", "", fmt.Sprintf("unsupported version %q", version))
@@ -620,4 +753,9 @@ func rawValue(groups []Group, code int) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func isSupported(version string) bool {
+	_, ok := canonicalVersion(version)
+	return ok
 }

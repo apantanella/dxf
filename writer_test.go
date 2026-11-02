@@ -141,7 +141,7 @@ func TestEncodeValidation(t *testing.T) {
 			name: "unsupported version",
 			doc: func() *Document {
 				doc := NewDocument()
-				doc.Version = "AC1015"
+				doc.Version = VersionR14 // R2000 and later are writable since T9
 				return doc
 			},
 			wantErr: ErrUnsupportedVersion,
@@ -151,7 +151,7 @@ func TestEncodeValidation(t *testing.T) {
 			doc: func() *Document {
 				doc := NewDocument()
 				doc.Version = ""
-				doc.Header.Set("$ACADVER", 1, "AC1015")
+				doc.Header.Set("$ACADVER", 1, VersionR13)
 				return doc
 			},
 			wantErr: ErrUnsupportedVersion,

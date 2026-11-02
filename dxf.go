@@ -7,8 +7,54 @@ import (
 	"strings"
 )
 
-// VersionR12 is the $ACADVER value shared by DXF R11 and R12.
-const VersionR12 = "AC1009"
+// $ACADVER values of the DXF versions the reader accepts. Encode writes
+// VersionR12 and VersionR2000 or later (R2000, R2004, R2007, R2010, R2013,
+// R2018); it does not write VersionR13 and VersionR14 (ADR 0009).
+const (
+	// VersionR12 is the $ACADVER value shared by DXF R11 and R12.
+	VersionR12 = "AC1009"
+	// VersionR13 is DXF R13. It is read on a best-effort basis.
+	VersionR13 = "AC1012"
+	// VersionR14 is DXF R14. It is read on a best-effort basis.
+	VersionR14 = "AC1014"
+	// VersionR2000 is DXF R2000.
+	VersionR2000 = "AC1015"
+	// VersionR2004 is DXF R2004.
+	VersionR2004 = "AC1018"
+	// VersionR2007 is DXF R2007, the first version whose text is UTF-8.
+	VersionR2007 = "AC1021"
+	// VersionR2010 is DXF R2010.
+	VersionR2010 = "AC1024"
+	// VersionR2013 is DXF R2013.
+	VersionR2013 = "AC1027"
+	// VersionR2018 is DXF R2018.
+	VersionR2018 = "AC1032"
+)
+
+// supportedVersions lists the versions Decode accepts, oldest first.
+var supportedVersions = []string{
+	VersionR12, VersionR13, VersionR14, VersionR2000, VersionR2004,
+	VersionR2007, VersionR2010, VersionR2013, VersionR2018,
+}
+
+// canonicalVersion returns the canonical spelling of v when it is one of
+// supportedVersions (compared case-insensitively).
+func canonicalVersion(v string) (string, bool) {
+	v = strings.TrimSpace(v)
+	for _, s := range supportedVersions {
+		if strings.EqualFold(v, s) {
+			return s, true
+		}
+	}
+	return "", false
+}
+
+// isModernVersion reports whether records of version v carry subclass markers
+// (R13 and later). Unknown AC10xx versions newer than R12 count as modern.
+func isModernVersion(v string) bool {
+	v = strings.ToUpper(strings.TrimSpace(v))
+	return strings.HasPrefix(v, "AC10") && v > VersionR12
+}
 
 // Color index values for EntityCommon.
 const (
@@ -40,13 +86,22 @@ type RawSection struct {
 	Groups []Group
 }
 
-// Document is an in-memory DXF R12 document.
+// Document is an in-memory DXF document. One type serves every version; the
+// Version field tells which one it was read from.
 type Document struct {
-	Version         string
-	Header          Header
-	Tables          Tables
-	Blocks          []*Block
-	Entities        []Entity
+	Version  string
+	Header   Header
+	Tables   Tables
+	Blocks   []*Block
+	Entities []Entity
+	// Classes holds the records of the CLASSES section (R13 and later) in file
+	// order.
+	Classes []Class
+	// Objects holds the records of the OBJECTS section (R13 and later) in file
+	// order. Objects the package does not interpret are *RawObject; DICTIONARY,
+	// ACDBDICTIONARYWDFLT, ACDBPLACEHOLDER and LAYOUT are *Dictionary,
+	// *Placeholder and *Layout.
+	Objects         []Object
 	UnknownSections []RawSection
 	Diagnostics     []Diagnostic
 }
@@ -58,6 +113,42 @@ func NewDocument() *Document {
 	doc.Tables.EnsureLayer("0", 7, "CONTINUOUS")
 	doc.Tables.EnsureLinetype("CONTINUOUS")
 	doc.Tables.EnsureStyle("STANDARD")
+	return doc
+}
+
+// NewDocumentVersion returns an empty document of the given version with the
+// default header of the reference file v00 (docs/dxf-r2013.md): $INSBASE,
+// $LIMMIN, $LIMMAX, $LTSCALE, $TEXTSTYLE, $CLAYER, $INSUNITS (4, millimetres),
+// $MEASUREMENT (1, metric) and $DWGCODEPAGE. VersionR12 gives the same document
+// as NewDocument.
+//
+// For the versions from R2000 on the tables, dictionaries, layouts and classes
+// are not stored in the document: Encode adds the ones that are missing, so the
+// empty document written as R2013 equals v00 without its three entities, apart
+// from the handles. $EXTMIN and $EXTMAX are not stored either: Encode computes
+// them from the entities, or writes (0,0,0) and (100,100,0) when there are none.
+// A version Encode cannot write (for example VersionR14) yields a document whose
+// Version is v as given, and Encode then returns an error.
+func NewDocumentVersion(v string) *Document {
+	if c, ok := canonicalVersion(v); ok && c == VersionR12 {
+		return NewDocument()
+	}
+	version := v
+	if c, ok := canonicalVersion(v); ok {
+		version = c
+	}
+	doc := &Document{Version: version, Header: Header{Variables: map[string]Variable{}}}
+	h := &doc.Header
+	h.Set("$ACADVER", 1, version)
+	h.Set("$DWGCODEPAGE", 3, defaultCodePage)
+	h.Variables["$INSBASE"] = Variable{Name: "$INSBASE", Groups: []Group{{Code: 10, Value: "0.0"}, {Code: 20, Value: "0.0"}, {Code: 30, Value: "0.0"}}}
+	h.Variables["$LIMMIN"] = Variable{Name: "$LIMMIN", Groups: []Group{{Code: 10, Value: "0.0"}, {Code: 20, Value: "0.0"}}}
+	h.Variables["$LIMMAX"] = Variable{Name: "$LIMMAX", Groups: []Group{{Code: 10, Value: "420.0"}, {Code: 20, Value: "297.0"}}}
+	h.Set("$LTSCALE", 40, "1.0")
+	h.Set("$TEXTSTYLE", 7, "Standard")
+	h.Set("$CLAYER", 8, "0")
+	h.Set("$INSUNITS", 70, "4")
+	h.Set("$MEASUREMENT", 70, "1")
 	return doc
 }
 
@@ -114,6 +205,10 @@ func (h *Header) Names() []string {
 // Tables holds the symbol tables of the TABLES section.
 type Tables struct {
 	Items []*Table
+	// BlockRecords is the typed view of the BLOCK_RECORD table (see
+	// LoadBlockRecords). The BLOCK_RECORD table in Items is authoritative for
+	// records that exist there.
+	BlockRecords []BlockRecord
 }
 
 // Table is a symbol table such as LAYER or STYLE.
@@ -287,6 +382,16 @@ type Block struct {
 	Raw       []Group
 	// EndHandle is the handle of the ENDBLK record, or empty when it has none.
 	EndHandle string
+	// Subclasses lists the subclass markers (group code 100) of the BLOCK
+	// record, in file order. It is empty for R12.
+	Subclasses []string
+	// Owner is the group code 330 of the BLOCK record (R13 and later).
+	Owner Handle
+	// RawSubclass is parallel to Raw: see EntityCommon.RawSubclass.
+	RawSubclass []int
+	// EndGroups holds the groups of the ENDBLK record other than its handle
+	// (330, 100 markers, layer) when the file has subclass markers.
+	EndGroups []Group
 }
 
 // Layer returns the layer of the block definition.

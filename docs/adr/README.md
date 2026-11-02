@@ -13,6 +13,8 @@ Decisioni che condizionano la fase F1 (nucleo R2013). Fonte: documento "Specific
 | [0007](0007-contenuto-non-interpretato.md) | Contenuto non interpretato: `RawEntity` e `RawObject` | Proposta (2026-11-02), adottata in via provvisoria |
 | [0008](0008-dxf-binario-non-supportato.md) | DXF binario non letto in F1 | Confermata (2026-11-02) |
 
+| [0009](0009-versioni-scrivibili.md) | Versioni scrivibili e differenze tra R2000 e R2018 | Proposta (2026-11-02), adottata in via provvisoria |
+
 Formato di ogni ADR: Titolo, Stato, Contesto, Decisione, Alternative scartate, Conseguenze. Un ADR confermato non si modifica: una decisione diversa si registra con un nuovo ADR che lo sostituisce.
 
 Documenti collegati:

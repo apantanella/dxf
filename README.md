@@ -107,6 +107,39 @@ Run them with:
 go test -run=XXX -bench=. -benchmem .
 ```
 
+## Generating verification files
+
+`dxfgen` writes DXF R12 files used to check the library against a CAD
+application. The frame is defined in meters and exported in the requested unit,
+so the same geometry exercises the unit conversion.
+
+```powershell
+# Structural frame expressed in meters
+go run ./cmd/dxfgen -out frame-m.dxf -kind frame -unit m
+
+# The same frame converted to millimeters
+go run ./cmd/dxfgen -out frame-mm.dxf -kind frame -unit mm
+
+# Every entity supported by the writer, one per layer
+go run ./cmd/dxfgen -out entities.dxf -kind entities
+```
+
+What to check in the CAD application:
+
+- The frame opens without errors and the layers `STR-NODES`, `STR-BEAMS`,
+  `STR-COLUMNS`, `STR-BRACES`, `STR-PANELS`, `STR-GRIDS` and `STR-LABELS` exist.
+- In `frame-m.dxf` the distance between two adjacent columns is 5 units (5 m);
+  in `frame-mm.dxf` the same distance is 5000 units (5000 mm).
+- `entities.dxf` shows a line, a point, a circle, an arc, a closed polyline with
+  a bulge, a text, a solid, a trace, a 3D face and a block insert with one
+  attribute.
+- The CAD audit command (`AUDIT` or equivalent) reports no errors.
+- Saving again as R12 and inspecting the result with `dxfinspect` keeps the same
+  entity counts.
+
+Record the outcome in the interoperability matrix in
+[docs/interoperability.md](docs/interoperability.md).
+
 ## Diagnostic CLI
 
 `dxfinspect` prints a summary of one or more DXF R12 files: version, blocks,
@@ -131,10 +164,11 @@ testdata/structural-frame.dxf
     TEXT       1
 ```
 
-Install it with:
+Install both commands with:
 
 ```bash
 go install github.com/apantanella/dxf/cmd/dxfinspect@latest
+go install github.com/apantanella/dxf/cmd/dxfgen@latest
 ```
 
 ## Documentation

@@ -158,6 +158,7 @@ Phases 1–4 of the roadmap are implemented:
 | Mapping and report | `structural/mapping.go` | complete |
 | Import and export | `structural/import.go`, `structural/export.go` | complete |
 | Diagnostic CLI | `cmd/dxfinspect/main.go` | complete |
+| Verification file generator | `cmd/dxfgen/main.go` | complete |
 
 Open items: manual verification with external CAD applications and the resulting
 interoperability matrix.

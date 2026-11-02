@@ -59,14 +59,36 @@ Manual verification matrix for every release:
 | BricsCAD | current | open, `AUDIT`, entities |
 | AutoCAD | current | open, `AUDIT`, entities |
 
+## Generating files for verification
+
+`cmd/dxfgen` writes the files to open in a CAD application:
+
+```powershell
+go run ./cmd/dxfgen -out frame-m.dxf -kind frame -unit m
+go run ./cmd/dxfgen -out frame-mm.dxf -kind frame -unit mm
+go run ./cmd/dxfgen -out entities.dxf -kind entities
+```
+
+Checklist for the matrix above:
+
+| Check | How | Expected |
+| --- | --- | --- |
+| Opening | Open `frame-m.dxf` | No error, no repair prompt |
+| Layers | Layer list | `STR-NODES`, `STR-BEAMS`, `STR-COLUMNS`, `STR-BRACES`, `STR-PANELS`, `STR-GRIDS`, `STR-LABELS` |
+| Units | Measure between two columns in `frame-m.dxf` | 5 drawing units |
+| Unit conversion | Measure between two columns in `frame-mm.dxf` | 5000 drawing units |
+| Entities | Open `entities.dxf` | Line, point, circle, arc, closed polyline with a bulge, text, solid, trace, 3D face, block insert with one attribute |
+| Drawing check | Run `AUDIT` or equivalent | No errors |
+| Round-trip | Save again as R12, then `go run ./cmd/dxfinspect saved.dxf` | Same entity counts as `dxfinspect entities.dxf` |
+
 Procedure:
 
-1. Open the file produced by `structural.Export`.
+1. Open the file produced by `structural.Export` or by `dxfgen`.
 2. Run the drawing check command (`AUDIT` or equivalent).
 3. Check layers, colors and linetypes.
 4. Measure the distance between two known nodes and compare it with the model.
 5. Save with the same CAD application in R12 and run the read round-trip.
-6. Record every observed difference in `CHANGELOG.md`.
+6. Record every observed difference in `CHANGELOG.md` and in the matrix above.
 
 ## Known limitations
 

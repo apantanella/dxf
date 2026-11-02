@@ -84,6 +84,7 @@ Status: in progress.
 - [x] OCS → WCS conversion in the structural import.
 - [x] Integration tests on the file system path (`-tags=integration`).
 - [x] Diagnostic CLI in `cmd/dxfinspect`.
+- [x] Verification file generator in `cmd/dxfgen`.
 - [ ] Manual verification with LibreCAD, QCAD and an Autodesk product.
 - [ ] Documentation of the observed differences and of the interoperability
       matrix.

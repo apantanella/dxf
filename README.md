@@ -51,6 +51,29 @@ doc, err := dxf.Decode(r) // r is an io.Reader
 err = dxf.Encode(w, doc) // w is an io.Writer
 ```
 
+Document helpers:
+
+```go
+// Bounding box of the model-space entities, in WCS.
+min, max, ok := doc.Extents()
+
+// Recompute $EXTMIN and $EXTMAX after editing a document.
+doc.UpdateExtents()
+```
+
+`Encode` fills `$EXTMIN` and `$EXTMAX` from `Extents` when the document does not
+define them, and leaves them untouched otherwise. Call `UpdateExtents` after
+editing a document that already carries them.
+
+The writer defines the standard AutoCAD linetypes (`CONTINUOUS`, `DASHED`,
+`CENTER`, `HIDDEN`, `PHANTOM`, `DASHDOT`, `DOT`, `DIVIDE`, `BORDER`, `DASHDOT2`)
+when a layer or an entity refers to them. A document that refers to any other
+linetype must define it in its `LTYPE` table, otherwise `Encode` fails with an
+error that wraps `ErrValidation`.
+
+`Decode` records one warning when a file contains non-ASCII bytes: R12 text
+depends on the code page, and the bytes are preserved unchanged.
+
 Reading example:
 
 ```go

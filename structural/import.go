@@ -41,9 +41,6 @@ func Import(doc *dxf.Document, mapping Mapping) (*Model, Report, error) {
 			continue
 		}
 		layer := entity.Layer()
-		if hasNonDefaultExtrusion(entity) {
-			report.ambiguous(entity.Type(), layer, "non-default extrusion: coordinates not converted to WCS")
-		}
 		switch typed := entity.(type) {
 		case *dxf.Point:
 			if !mapping.inLayers(mapping.NodeLayers, layer) {
@@ -85,7 +82,7 @@ func Import(doc *dxf.Document, mapping Mapping) (*Model, Report, error) {
 				report.skip(entity.Type(), layer, "layer not mapped for labels")
 				continue
 			}
-			if !attachLabel(model, index, typed.Position, typed.Value, tolerance) {
+			if !attachLabel(model, index, dxf.OCS2WCS(typed.Position, typed.Normal()), typed.Value, tolerance) {
 				report.Diagnostics = append(report.Diagnostics, Diagnostic{
 					Entity:  entity.Type(),
 					Layer:   layer,
@@ -103,7 +100,7 @@ func Import(doc *dxf.Document, mapping Mapping) (*Model, Report, error) {
 			}
 			boundary := make([]dxf.Point3D, 0, len(typed.Vertices))
 			for _, vertex := range typed.Vertices {
-				boundary = append(boundary, vertex.Position)
+				boundary = append(boundary, polylinePoint(typed, vertex))
 			}
 			boundary = removeDuplicates(boundary, tolerance)
 			if len(boundary) < 3 {
@@ -181,13 +178,15 @@ func removeDuplicates(points []dxf.Point3D, tolerance float64) []dxf.Point3D {
 	return out
 }
 
-func hasNonDefaultExtrusion(entity dxf.Entity) bool {
-	common := entity.Common()
-	if common == nil || !common.ExtrusionSet {
-		return false
+// polylinePoint returns the WCS position of a polyline vertex. 2D polylines
+// store their vertices in OCS, with the elevation in the polyline record; 3D
+// polylines store their vertices in WCS.
+func polylinePoint(polyline *dxf.Polyline, vertex dxf.Vertex) dxf.Point3D {
+	if polyline.Flags&8 != 0 {
+		return vertex.Position
 	}
-	normal := common.Normal()
-	return math.Abs(normal.X) > 1e-12 || math.Abs(normal.Y) > 1e-12 || math.Abs(normal.Z-1) > 1e-12
+	ocs := dxf.Point3D{X: vertex.Position.X, Y: vertex.Position.Y, Z: polyline.Elevation.Z}
+	return dxf.OCS2WCS(ocs, polyline.Normal())
 }
 
 // nodeIndex merges nodes whose positions coincide within a tolerance.

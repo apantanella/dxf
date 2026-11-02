@@ -66,6 +66,7 @@ Manual verification matrix for every release:
 ```powershell
 go run ./cmd/dxfgen -out frame-m.dxf -kind frame -unit m
 go run ./cmd/dxfgen -out frame-mm.dxf -kind frame -unit mm
+go run ./cmd/dxfgen -out plan-m.dxf -kind plan -unit m
 go run ./cmd/dxfgen -out entities.dxf -kind entities
 ```
 
@@ -75,11 +76,17 @@ Checklist for the matrix above:
 | --- | --- | --- |
 | Opening | Open `frame-m.dxf` | No error, no repair prompt |
 | Layers | Layer list | `STR-NODES`, `STR-BEAMS`, `STR-COLUMNS`, `STR-BRACES`, `STR-PANELS`, `STR-GRIDS`, `STR-LABELS` |
+| Colors | Layer properties | Nodes 2, beams 1, columns 3, braces 5, panels 4, grids 8, labels 7 |
 | Units | Measure between two columns in `frame-m.dxf` | 5 drawing units |
 | Unit conversion | Measure between two columns in `frame-mm.dxf` | 5000 drawing units |
+| 2D visibility | Open `plan-m.dxf` in top view | Four column footprints, four beams, slab, two grids, labels |
 | Entities | Open `entities.dxf` | Line, point, circle, arc, closed polyline with a bulge, text, solid, trace, 3D face, block insert with one attribute |
 | Drawing check | Run `AUDIT` or equivalent | No errors |
 | Round-trip | Save again as R12, then `go run ./cmd/dxfinspect saved.dxf` | Same entity counts as `dxfinspect entities.dxf` |
+
+Note: `frame` is a 3D structure. In the default top view the columns project to
+points and the beams coincide with the slab level, so use an isometric view or
+the `plan` kind for a 2D check.
 
 Procedure:
 

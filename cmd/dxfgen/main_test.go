@@ -1,12 +1,14 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/apantanella/dxf"
+	"github.com/apantanella/dxf/structural"
 )
 
 func generate(t *testing.T, args ...string) (string, int) {
@@ -80,6 +82,98 @@ func TestRunEntities(t *testing.T) {
 	if len(doc.Blocks) != 1 || doc.Blocks[0].Name != "SAMPLE" {
 		t.Errorf("blocks = %+v", doc.Blocks)
 	}
+}
+
+func TestRunPlan(t *testing.T) {
+	t.Parallel()
+
+	path, _ := generate(t, "-kind", "plan", "-unit", "m")
+	doc := decodeGenerated(t, path)
+
+	counts := map[string]int{}
+	for _, entity := range doc.Entities {
+		counts[entity.Type()]++
+	}
+	want := map[string]int{"LINE": 6, "POLYLINE": 5, "POINT": 2, "TEXT": 4}
+	for entityType, count := range want {
+		if counts[entityType] != count {
+			t.Errorf("%s = %d, want %d (counts = %v)", entityType, counts[entityType], count, counts)
+		}
+	}
+}
+
+func TestRunPlanUnitConversion(t *testing.T) {
+	t.Parallel()
+
+	path, _ := generate(t, "-kind", "plan", "-unit", "mm")
+	doc := decodeGenerated(t, path)
+
+	maxX := 0.0
+	for _, entity := range doc.Entities {
+		line, ok := entity.(*dxf.Line)
+		if !ok {
+			continue
+		}
+		for _, x := range []float64{line.Start.X, line.End.X} {
+			if x > maxX {
+				maxX = x
+			}
+		}
+	}
+	if maxX < 5900 || maxX > 6100 {
+		t.Errorf("max X = %v, want about 6000 (6 m in mm)", maxX)
+	}
+}
+
+func TestRunFrameLayerColors(t *testing.T) {
+	t.Parallel()
+
+	path, _ := generate(t, "-kind", "frame", "-unit", "m")
+	doc := decodeGenerated(t, path)
+
+	colors := map[string]int{}
+	table := doc.Tables.Find("LAYER")
+	if table == nil {
+		t.Fatal("LAYER table not found")
+	}
+	for _, record := range table.Records {
+		name := ""
+		color := -1
+		for _, group := range record.Groups {
+			switch group.Code {
+			case 2:
+				name = strings.TrimSpace(group.Value)
+			case 62:
+				color = int(parseNumber(t, group.Value))
+			}
+		}
+		if name != "" {
+			colors[name] = color
+		}
+	}
+
+	want := map[string]int{
+		structural.LayerNodes:   structural.ColorNodes,
+		structural.LayerBeams:   structural.ColorBeams,
+		structural.LayerColumns: structural.ColorColumns,
+		structural.LayerBraces:  structural.ColorBraces,
+		structural.LayerPanels:  structural.ColorPanels,
+		structural.LayerGrids:   structural.ColorGrids,
+	}
+	for layer, color := range want {
+		if colors[layer] != color {
+			t.Errorf("layer %s color = %d, want %d (colors = %v)", layer, colors[layer], color, colors)
+		}
+	}
+}
+
+func parseNumber(t *testing.T, value string) float64 {
+	t.Helper()
+	var result float64
+	if _, err := fmt.Sscanf(strings.TrimSpace(value), "%g", &result); err != nil {
+		t.Fatalf("cannot parse %q: %v", value, err)
+	}
+	return result
 }
 
 func TestRunUnitConversion(t *testing.T) {

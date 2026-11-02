@@ -50,6 +50,40 @@ const (
 	LayerLabels  = "STR-LABELS"
 )
 
+// ACI colors assigned by Export to the structural layers, so that overlapping
+// elements remain distinguishable.
+const (
+	ColorNodes   = 2 // yellow
+	ColorBeams   = 1 // red
+	ColorColumns = 3 // green
+	ColorBraces  = 5 // blue
+	ColorMembers = 6 // magenta
+	ColorPanels  = 4 // cyan
+	ColorGrids   = 8 // dark gray
+	ColorLabels  = 7 // white/black
+)
+
+// LayerStyle is a structural layer with the color and linetype used by Export.
+type LayerStyle struct {
+	Name     string
+	Color    int
+	Linetype string
+}
+
+// LayerStyles returns the layers created by Export, in creation order.
+func LayerStyles() []LayerStyle {
+	return []LayerStyle{
+		{Name: LayerNodes, Color: ColorNodes, Linetype: "CONTINUOUS"},
+		{Name: LayerBeams, Color: ColorBeams, Linetype: "CONTINUOUS"},
+		{Name: LayerColumns, Color: ColorColumns, Linetype: "CONTINUOUS"},
+		{Name: LayerBraces, Color: ColorBraces, Linetype: "CONTINUOUS"},
+		{Name: LayerMembers, Color: ColorMembers, Linetype: "CONTINUOUS"},
+		{Name: LayerPanels, Color: ColorPanels, Linetype: "CONTINUOUS"},
+		{Name: LayerGrids, Color: ColorGrids, Linetype: "CONTINUOUS"},
+		{Name: LayerLabels, Color: ColorLabels, Linetype: "CONTINUOUS"},
+	}
+}
+
 func (m Mapping) snapTolerance() float64 {
 	if m.SnapTolerance <= 0 {
 		return 1e-6

@@ -129,16 +129,16 @@ without counting as skipped entities.
 
 ## Default export conventions
 
-| Element | Default layer | DXF entity |
-| --- | --- | --- |
-| Nodes | `STR-NODES` | `POINT` |
-| Beams | `STR-BEAMS` | `LINE` |
-| Columns | `STR-COLUMNS` | `LINE` |
-| Braces | `STR-BRACES` | `LINE` |
-| Generic members | `STR-MEMBERS` | `LINE` |
-| Panels | `STR-PANELS` | Closed `POLYLINE` |
-| Axes | `STR-GRIDS` | `LINE` |
-| Labels | `STR-LABELS` | `TEXT` |
+| Element | Default layer | DXF entity | ACI color |
+| --- | --- | --- | --- |
+| Nodes | `STR-NODES` | `POINT` | 2 (yellow) |
+| Beams | `STR-BEAMS` | `LINE` | 1 (red) |
+| Columns | `STR-COLUMNS` | `LINE` | 3 (green) |
+| Braces | `STR-BRACES` | `LINE` | 5 (blue) |
+| Generic members | `STR-MEMBERS` | `LINE` | 6 (magenta) |
+| Panels | `STR-PANELS` | Closed `POLYLINE` | 4 (cyan) |
+| Axes | `STR-GRIDS` | `LINE` | 8 (dark gray) |
+| Labels | `STR-LABELS` | `TEXT` | 7 (white/black) |
 
 Labels use `TEXT` with height `Mapping.LabelHeight`, converted to the document
 unit. The conventions can be changed: they are a default, not a format

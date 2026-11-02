@@ -114,22 +114,35 @@ application. The frame is defined in meters and exported in the requested unit,
 so the same geometry exercises the unit conversion.
 
 ```powershell
-# Structural frame expressed in meters
+# Structural frame expressed in meters (3D: use an isometric view)
 go run ./cmd/dxfgen -out frame-m.dxf -kind frame -unit m
 
 # The same frame converted to millimeters
 go run ./cmd/dxfgen -out frame-mm.dxf -kind frame -unit mm
 
+# 2D plan of the same frame: columns are square footprints, visible in top view
+go run ./cmd/dxfgen -out plan-m.dxf -kind plan -unit m
+
 # Every entity supported by the writer, one per layer
 go run ./cmd/dxfgen -out entities.dxf -kind entities
 ```
 
+`frame` and `plan` use distinct, documented layer colors, so overlapping
+elements stay distinguishable: nodes yellow (2), beams red (1), columns green
+(3), braces blue (5), panels cyan (4), grids dark gray (8), labels white (7).
+In the `frame` kind the columns are vertical and the beams lie at the slab
+level, so open an isometric or 3D view to see the whole structure; the `plan`
+kind draws everything in the XY plane for the default top view.
+
 What to check in the CAD application:
 
 - The frame opens without errors and the layers `STR-NODES`, `STR-BEAMS`,
-  `STR-COLUMNS`, `STR-BRACES`, `STR-PANELS`, `STR-GRIDS` and `STR-LABELS` exist.
+  `STR-COLUMNS`, `STR-BRACES`, `STR-PANELS`, `STR-GRIDS` and `STR-LABELS` exist,
+  each with its own color.
 - In `frame-m.dxf` the distance between two adjacent columns is 5 units (5 m);
   in `frame-mm.dxf` the same distance is 5000 units (5000 mm).
+- In `plan-m.dxf` the four column footprints, the four beams, the slab, the two
+  grids and the labels are all visible in the default top view.
 - `entities.dxf` shows a line, a point, a circle, an arc, a closed polyline with
   a bulge, a text, a solid, a trace, a 3D face and a block insert with one
   attribute.

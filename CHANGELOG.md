@@ -52,8 +52,10 @@ versioning follows [Semantic Versioning](https://semver.org/).
 - `dxfinspect` command that prints the version, blocks, layers, entity counts per
   type and diagnostics of one or more DXF files, with a `-lenient` mode.
 - `dxfgen` command that generates verification files: a structural frame exported
-  in a chosen unit and a document containing every entity supported by the
-  writer.
+  in a chosen unit, a 2D plan of the same frame with square column footprints,
+  and a document containing every entity supported by the writer.
+- Distinct, documented ACI colors for the `STR-*` layers created by
+  `structural.Export`, so overlapping elements stay distinguishable.
 
 ### Changed
 

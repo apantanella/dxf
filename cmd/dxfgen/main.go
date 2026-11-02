@@ -27,6 +27,7 @@ import (
 
 const (
 	kindFrame    = "frame"
+	kindPlan     = "plan"
 	kindEntities = "entities"
 )
 
@@ -38,7 +39,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	flags := flag.NewFlagSet("dxfgen", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	out := flags.String("out", "dxfgen.dxf", "output file path")
-	kind := flags.String("kind", kindFrame, "document kind: frame or entities")
+	kind := flags.String("kind", kindFrame, "document kind: frame, plan or entities")
 	unitName := flags.String("unit", "m", "unit for the frame kind: mm, cm, m, in or ft")
 	precision := flags.Int("precision", -1, "digits after the decimal point; negative writes the shortest form")
 	if err := flags.Parse(args); err != nil {
@@ -59,10 +60,12 @@ func run(args []string, stdout, stderr io.Writer) int {
 	switch strings.ToLower(*kind) {
 	case kindFrame:
 		doc, err = buildFrame(unit)
+	case kindPlan:
+		doc, err = buildPlan(unit)
 	case kindEntities:
 		doc, err = buildEntities()
 	default:
-		fmt.Fprintf(stderr, "dxfgen: unknown kind %q, want %q or %q\n", *kind, kindFrame, kindEntities)
+		fmt.Fprintf(stderr, "dxfgen: unknown kind %q, want %q, %q or %q\n", *kind, kindFrame, kindPlan, kindEntities)
 		return 2
 	}
 	if err != nil {
@@ -149,11 +152,12 @@ func buildFrame(unit structural.Unit) (*dxf.Document, error) {
 		return nil, err
 	}
 
+	// The slab is inset so that the beams stay visible in a plan view.
 	if _, err := model.AddPanel([]dxf.Point3D{
-		{X: 0, Y: 0, Z: 3},
-		{X: 5, Y: 0, Z: 3},
-		{X: 5, Y: 4, Z: 3},
-		{X: 0, Y: 4, Z: 3},
+		{X: 0.25, Y: 0.25, Z: 3},
+		{X: 4.75, Y: 0.25, Z: 3},
+		{X: 4.75, Y: 3.75, Z: 3},
+		{X: 0.25, Y: 3.75, Z: 3},
 	}, structural.PanelSlab); err != nil {
 		return nil, err
 	}
@@ -173,6 +177,103 @@ func setLabel(model *structural.Model, id, label string) {
 		if model.Nodes[i].ID == id {
 			model.Nodes[i].Label = label
 		}
+	}
+}
+
+// unitFactor returns how many drawing units one meter corresponds to.
+func unitFactor(unit structural.Unit) (float64, error) {
+	switch unit {
+	case structural.UnitMillimeter:
+		return 1000, nil
+	case structural.UnitCentimeter:
+		return 100, nil
+	case structural.UnitMeter:
+		return 1, nil
+	case structural.UnitInch:
+		return 1 / 0.0254, nil
+	case structural.UnitFoot:
+		return 1 / 0.3048, nil
+	default:
+		return 0, fmt.Errorf("unknown unit")
+	}
+}
+
+// buildPlan returns a 2D plan of the same frame, so that every element is
+// visible in the default view of a 2D CAD application: columns are square
+// footprints, beams are lines and the slab is an inset closed polyline.
+func buildPlan(unit structural.Unit) (*dxf.Document, error) {
+	factor, err := unitFactor(unit)
+	if err != nil {
+		return nil, err
+	}
+	point := func(x, y float64) dxf.Point3D {
+		return dxf.Point3D{X: x * factor, Y: y * factor}
+	}
+
+	doc := dxf.NewDocument()
+	for _, layer := range structural.LayerStyles() {
+		doc.Tables.EnsureLayer(layer.Name, layer.Color, layer.Linetype)
+	}
+
+	column := func(x, y float64) dxf.Entity {
+		const half = 0.2
+		return &dxf.Polyline{
+			EntityCommon: dxf.EntityCommon{LayerName: structural.LayerColumns},
+			Flags:        1,
+			Vertices: []dxf.Vertex{
+				{Position: point(x-half, y-half)},
+				{Position: point(x+half, y-half)},
+				{Position: point(x+half, y+half)},
+				{Position: point(x-half, y+half)},
+			},
+		}
+	}
+	beam := func(x1, y1, x2, y2 float64) dxf.Entity {
+		return &dxf.Line{
+			EntityCommon: dxf.EntityCommon{LayerName: structural.LayerBeams},
+			Start:        point(x1, y1),
+			End:          point(x2, y2),
+		}
+	}
+
+	doc.Entities = []dxf.Entity{
+		column(0, 0),
+		column(5, 0),
+		column(5, 4),
+		column(0, 4),
+		beam(0, 0, 5, 0),
+		beam(5, 0, 5, 4),
+		beam(5, 4, 0, 4),
+		beam(0, 4, 0, 0),
+		&dxf.Polyline{
+			EntityCommon: dxf.EntityCommon{LayerName: structural.LayerPanels},
+			Flags:        1,
+			Vertices: []dxf.Vertex{
+				{Position: point(0.25, 0.25)},
+				{Position: point(4.75, 0.25)},
+				{Position: point(4.75, 3.75)},
+				{Position: point(0.25, 3.75)},
+			},
+		},
+		&dxf.Line{EntityCommon: dxf.EntityCommon{LayerName: structural.LayerGrids}, Start: point(-1, 0), End: point(6, 0)},
+		&dxf.Line{EntityCommon: dxf.EntityCommon{LayerName: structural.LayerGrids}, Start: point(0, -1), End: point(0, 5)},
+		planLabel("A", point(-1, 0.2), factor),
+		planLabel("1", point(0.2, -1), factor),
+		&dxf.Point{EntityCommon: dxf.EntityCommon{LayerName: structural.LayerNodes}, Position: point(0, 0)},
+		&dxf.Point{EntityCommon: dxf.EntityCommon{LayerName: structural.LayerNodes}, Position: point(5, 0)},
+		planLabel("N1", point(0, 0), factor),
+		planLabel("N3", point(5, 0), factor),
+	}
+	return doc, nil
+}
+
+func planLabel(value string, position dxf.Point3D, factor float64) dxf.Entity {
+	return &dxf.Text{
+		EntityCommon: dxf.EntityCommon{LayerName: structural.LayerLabels},
+		Value:        value,
+		Position:     position,
+		Height:       0.3 * factor,
+		XScale:       1,
 	}
 }
 

@@ -47,8 +47,8 @@ func Export(model *Model, mapping Mapping) (*dxf.Document, error) {
 	}
 
 	doc := dxf.NewDocument()
-	for _, layer := range []string{LayerNodes, LayerMembers, LayerBeams, LayerColumns, LayerBraces, LayerPanels, LayerGrids, LayerLabels} {
-		doc.Tables.EnsureLayer(layer, 7, "CONTINUOUS")
+	for _, layer := range LayerStyles() {
+		doc.Tables.EnsureLayer(layer.Name, layer.Color, layer.Linetype)
 	}
 
 	label := func(text string, position dxf.Point3D) {

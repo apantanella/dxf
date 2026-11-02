@@ -62,7 +62,7 @@ func TestEncodeMinimal(t *testing.T) {
 
 	out := encodeString(t, doc)
 	for _, want := range []string{
-		"0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1009\n0\nENDSEC\n",
+		"0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1009\n9\n$EXTMAX\n10\n5\n20\n0.0\n30\n0.0\n9\n$EXTMIN\n10\n0.0\n20\n0.0\n30\n0.0\n0\nENDSEC\n",
 		"0\nSECTION\n2\nTABLES\n",
 		"0\nLAYER\n2\n0\n",
 		"0\nLTYPE\n2\nCONTINUOUS\n",

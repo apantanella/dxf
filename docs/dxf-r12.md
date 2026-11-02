@@ -215,11 +215,34 @@ The four corners are in WCS and there is no extrusion group code.
 When `66` is 1, the `ATTRIB` records are followed by `SEQEND`. An `INSERT` that
 references a missing block is a validation error on write and a warning on read.
 
+### `ATTRIB`
+
+| Group code | Meaning |
+| --- | --- |
+| `1` | Attribute value |
+| `2` | Attribute tag |
+| `10`, `20`, `30` | Text position |
+| `40` | Text height |
+| `41` | Relative X scale |
+| `50` | Rotation in degrees |
+| `51` | Oblique angle |
+| `7` | Text style |
+| `70` | Attribute flags |
+| `72` | Horizontal alignment |
+| `73` | Field length |
+| `74` | Vertical alignment |
+
+Note that `73` and `74` differ from `TEXT`, where `73` is the vertical alignment.
+
 ## Tables
 
 Expected tables: `LAYER`, `LTYPE`, `STYLE`, `APPID`, plus `VPORT` and `VIEW` on
 read. Every table starts with `0` / table name, contains records and ends with
 `0` / `ENDTAB`.
+
+The writer emits the tables in the order `VPORT`, `LTYPE`, `LAYER`, `STYLE`,
+`VIEW`, `UCS`, `APPID`, `DIMSTYLE`, so that a layer never refers to a linetype
+defined later in the file.
 
 `LAYER` record:
 
@@ -233,6 +256,22 @@ read. Every table starts with `0` / table name, contains records and ends with
 The writer guarantees that layer `0` and every layer referenced by an entity
 exist. Missing layers are added with color 7 and the `CONTINUOUS` linetype. The
 `LTYPE` and `STYLE` tables always contain `CONTINUOUS` and `STANDARD`.
+
+Every linetype referenced by a layer or an entity must exist. The writer defines
+the standard AutoCAD linetypes by name (`DASHED`, `HIDDEN`, `CENTER`, `PHANTOM`,
+`DASHDOT`, `DOT`, `DIVIDE`, `BORDER`, `DASHDOT2`) when the document does not
+define them, and rejects any other undefined linetype with an error that wraps
+`ErrValidation`. `Encode` never modifies the document it receives.
+
+## Drawing extents
+
+`$EXTMIN` and `$EXTMAX` tell a CAD application where the drawing is. `Encode`
+writes them from the entities when the document does not define them;
+`Document.Extents` computes the box and `Document.UpdateExtents` stores it in
+the header. Call `UpdateExtents` after editing a document read from a file: the
+values read from the file are otherwise kept as they are. The box is
+conservative: arcs and circles count as full circles and text width is
+estimated.
 
 ## Coordinate systems
 

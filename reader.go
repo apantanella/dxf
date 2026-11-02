@@ -321,6 +321,8 @@ func (p *parser) readBlock() (*Block, error) {
 	if layer, ok := gs.str(groupLayer); ok {
 		block.LayerName = layer
 	}
+	// Code 3 repeats the block name: the writer regenerates it.
+	gs.str(groupName2)
 	if v, ok, err := gs.float(groupX); err != nil {
 		return nil, err
 	} else if ok {
@@ -517,6 +519,10 @@ func (p *parser) readInsert(groups []Group) (Entity, error) {
 func (p *parser) finish() (*Document, error) {
 	if !p.sawSection {
 		return nil, ErrNotDXF
+	}
+	if n := p.gr.nonASCII; n > 0 {
+		p.addDiagnostic(SeverityWarning, p.gr.firstNonASCII, "", "", fmt.Sprintf(
+			"%d group values contain non-ASCII bytes: R12 text depends on the code page, the bytes are preserved unchanged", n))
 	}
 	if !p.sawEOF {
 		if p.cfg.lenient {

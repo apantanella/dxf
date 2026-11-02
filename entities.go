@@ -9,6 +9,7 @@ const (
 	groupType           = 0
 	groupText           = 1
 	groupName           = 2
+	groupName2          = 3
 	groupHandle         = 5
 	groupLinetype       = 6
 	groupStyle          = 7
@@ -44,7 +45,8 @@ const (
 	groupFlags2         = 71
 	groupHAlign         = 72
 	groupVAlign         = 73
-	groupFieldLength    = 74
+	groupFieldLength    = 73
+	groupAttribVAlign   = 74
 	groupExtrusionX     = 210
 	groupExtrusionY     = 220
 	groupExtrusionZ     = 230
@@ -334,17 +336,17 @@ func newGroupSet(groups []Group) *groupSet {
 	return &groupSet{groups: groups, used: make([]bool, len(groups))}
 }
 
+// mark returns the first group with the given code and marks it as consumed.
+// Further groups with the same code stay unmarked, so they are preserved in the
+// leftovers instead of being dropped.
 func (s *groupSet) mark(code int) (Group, bool) {
-	found := Group{}
-	ok := false
 	for i, g := range s.groups {
 		if g.Code == code {
 			s.used[i] = true
-			found = g
-			ok = true
+			return g, true
 		}
 	}
-	return found, ok
+	return Group{}, false
 }
 
 func (s *groupSet) str(code int) (string, bool) {
@@ -842,7 +844,7 @@ func decodeAttribute(groups []Group) (Attribute, error) {
 	} else if ok {
 		a.Flags = v
 	}
-	if v, ok, err := gs.int(groupVAlign); err != nil {
+	if v, ok, err := gs.int(groupAttribVAlign); err != nil {
 		return a, err
 	} else if ok {
 		a.VAlign = v

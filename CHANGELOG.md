@@ -56,11 +56,43 @@ versioning follows [Semantic Versioning](https://semver.org/).
   and a document containing every entity supported by the writer.
 - Distinct, documented ACI colors for the `STR-*` layers created by
   `structural.Export`, so overlapping elements stay distinguishable.
+- `Document.Extents` and `Document.UpdateExtents`; `Encode` writes `$EXTMIN` and
+  `$EXTMAX` when the document does not define them.
+- Definitions of the standard AutoCAD linetypes (`DASHED`, `CENTER`, `HIDDEN`,
+  ...), written when a layer or an entity refers to them.
+- Warning diagnostic from `Decode` when a file contains non-ASCII bytes.
+- Regression tests for every defect listed under "Fixed" in
+  `regression_f0_test.go`.
 
 ### Changed
 
 - `README.md` rewritten with the project description, the scope and the
   implemented API.
+- `Encode` rejects a document that refers to a linetype that is neither defined
+  in its `LTYPE` table nor one of the standard linetypes.
+- Symbol tables are written in the R12 order (`LTYPE` before `LAYER`).
+- A group code that appears twice in an entity is no longer dropped: the first
+  occurrence is interpreted and the others are kept in `Raw`.
+
+### Fixed
+
+- `POLYLINE` and `INSERT` were written with their handle and layer groups twice,
+  and with two different handles when the document used handles.
+- Unhandled groups (such as XDATA) of a `POLYLINE` or `INSERT` were written after
+  `SEQEND`, which attached them to the wrong record.
+- `Encode` added layers and linetypes to the tables of the document it received,
+  which was also a data race for concurrent calls.
+- `ATTRIB` field length and vertical alignment used each other's group code
+  (`73` is the field length, `74` the vertical alignment).
+- `LAYER` records could refer to a linetype that was not defined, or defined
+  later in the file.
+- `BLOCK` did not repeat its name with group code `3`.
+- The scanner read a whole line before checking `MaxValueBytes`; a file without
+  line breaks was buffered completely. Lines are now rejected as soon as they
+  cross the limit.
+- `$HANDSEED` ignored the handles of table records and blocks.
+- The documentation promised a diagnostic for non-ASCII bytes that was not
+  implemented.
 
 ## Versioning notes
 

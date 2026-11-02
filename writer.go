@@ -110,18 +110,43 @@ func (ew *entityWriter) writeHeader(doc *Document) {
 		ew.group(groupVariable, "$HANDSEED")
 		ew.group(groupHandle, strings.ToUpper(strconv.FormatUint(seed, 16)))
 	}
-	for _, name := range doc.Header.Names() {
+	header := ew.headerWithExtents(doc)
+	for _, name := range header.Names() {
 		switch name {
 		case "$ACADVER", "$HANDLING", "$HANDSEED":
 			continue
 		}
-		variable := doc.Header.Variables[name]
+		variable := header.Variables[name]
 		ew.group(groupVariable, name)
 		for _, group := range variable.Groups {
 			ew.group(group.Code, group.Value)
 		}
 	}
 	ew.group(groupType, "ENDSEC")
+}
+
+// headerWithExtents returns the header to write: the document variables plus
+// $EXTMIN and $EXTMAX computed from the entities when the document does not
+// define them. The document itself is not modified.
+func (ew *entityWriter) headerWithExtents(doc *Document) Header {
+	header := Header{Variables: make(map[string]Variable, len(doc.Header.Variables)+2)}
+	for name, variable := range doc.Header.Variables {
+		header.Variables[name] = variable
+	}
+	_, hasMin := header.Variables["$EXTMIN"]
+	_, hasMax := header.Variables["$EXTMAX"]
+	if hasMin && hasMax {
+		return header
+	}
+	if min, max, ok := doc.Extents(); ok {
+		if !hasMin {
+			header.setPoint("$EXTMIN", min, ew.cfg.precision)
+		}
+		if !hasMax {
+			header.setPoint("$EXTMAX", max, ew.cfg.precision)
+		}
+	}
+	return header
 }
 
 func (ew *entityWriter) writeTables(doc *Document) {
@@ -152,9 +177,19 @@ func preparedTables(doc *Document) *Tables {
 		if table == nil {
 			continue
 		}
-		tables.Items = append(tables.Items, table)
+		// The writer adds records to the tables it emits: work on a copy so that
+		// Encode never modifies the caller's document.
+		clone := *table
+		clone.Records = append([]Record(nil), table.Records...)
+		tables.Items = append(tables.Items, &clone)
 	}
 	tables.EnsureLinetype("CONTINUOUS")
+	refs := referencedLinetypes(doc)
+	for _, upper := range sortedKeys(refs) {
+		if _, ok := standardLinetypes[upper]; ok {
+			tables.EnsureLinetype(refs[upper])
+		}
+	}
 	tables.EnsureStyle("STANDARD")
 	tables.EnsureLayer("0", 7, "CONTINUOUS")
 	for _, layer := range referencedLayers(doc) {
@@ -165,7 +200,7 @@ func preparedTables(doc *Document) *Tables {
 
 // orderedTables puts the tables that CAD applications expect first.
 func orderedTables(tables *Tables) []*Table {
-	preferred := []string{"LAYER", "LTYPE", "STYLE", "APPID"}
+	preferred := []string{"VPORT", "LTYPE", "LAYER", "STYLE", "VIEW", "UCS", "APPID", "DIMSTYLE"}
 	var out []*Table
 	seen := map[string]bool{}
 	for _, name := range preferred {
@@ -196,6 +231,7 @@ func (ew *entityWriter) writeBlocks(doc *Document) {
 		ew.groupFloat(groupX, block.BasePoint.X)
 		ew.groupFloat(groupY, block.BasePoint.Y)
 		ew.groupFloat(groupZ, block.BasePoint.Z)
+		ew.group(groupName2, block.Name)
 		for _, group := range block.Raw {
 			ew.group(group.Code, group.Value)
 		}
@@ -213,7 +249,13 @@ func (ew *entityWriter) writeEntity(entity Entity) {
 		return
 	}
 	ew.group(groupType, entity.Type())
-	ew.writeCommon(entity.Common())
+	switch entity.(type) {
+	case *Polyline, *Insert:
+		// Composite entities write the common groups themselves, after their
+		// own header, so that they are not written twice.
+	default:
+		ew.writeCommon(entity.Common())
+	}
 	switch typed := entity.(type) {
 	case *Line:
 		ew.writePoint(groupX, typed.Start)
@@ -363,6 +405,7 @@ func (ew *entityWriter) writePolyline(entity *Polyline) {
 		ew.groupFloat(groupWidthEnd, entity.EndWidth)
 	}
 	ew.writeExtrusion(&entity.EntityCommon)
+	ew.writeRaw(&entity.EntityCommon)
 	for _, vertex := range entity.Vertices {
 		ew.group(groupType, "VERTEX")
 		if vertex.Handle != "" {
@@ -385,7 +428,6 @@ func (ew *entityWriter) writePolyline(entity *Polyline) {
 	if ew.handlesEnabled {
 		ew.group(groupHandle, ew.nextHandle())
 	}
-	ew.writeRaw(&entity.EntityCommon)
 }
 
 func (ew *entityWriter) writeInsert(entity *Insert) {
@@ -420,6 +462,7 @@ func (ew *entityWriter) writeInsert(entity *Insert) {
 		ew.groupInt(groupVerticesFollow, 1)
 	}
 	ew.writeExtrusion(&entity.EntityCommon)
+	ew.writeRaw(&entity.EntityCommon)
 	for i := range entity.Attributes {
 		ew.writeAttribute(&entity.Attributes[i])
 	}
@@ -429,7 +472,6 @@ func (ew *entityWriter) writeInsert(entity *Insert) {
 			ew.group(groupHandle, ew.nextHandle())
 		}
 	}
-	ew.writeRaw(&entity.EntityCommon)
 }
 
 func (ew *entityWriter) writeAttribute(attribute *Attribute) {
@@ -467,7 +509,7 @@ func (ew *entityWriter) writeAttribute(attribute *Attribute) {
 		ew.groupInt(groupHAlign, attribute.HAlign)
 	}
 	if attribute.VAlign != 0 {
-		ew.groupInt(groupVAlign, attribute.VAlign)
+		ew.groupInt(groupAttribVAlign, attribute.VAlign)
 	}
 	for _, group := range attribute.Raw {
 		ew.group(group.Code, group.Value)
@@ -480,6 +522,9 @@ func validateDocument(doc *Document) error {
 	}
 	if version, ok := doc.Header.Get("$ACADVER"); ok && !strings.EqualFold(version, VersionR12) {
 		return &VersionError{Found: version}
+	}
+	if err := checkLinetypes(doc); err != nil {
+		return err
 	}
 	blocks := make(map[string]bool, len(doc.Blocks))
 	for _, block := range doc.Blocks {
@@ -725,12 +770,30 @@ func maxHandle(doc *Document) uint64 {
 		}
 	}
 	walk(doc.Entities)
+	for _, table := range doc.Tables.Items {
+		if table == nil {
+			continue
+		}
+		visitGroups(table.Raw, visit)
+		for _, record := range table.Records {
+			visitGroups(record.Groups, visit)
+		}
+	}
 	for _, block := range doc.Blocks {
 		if block != nil {
+			visitGroups(block.Raw, visit)
 			walk(block.Entities)
 		}
 	}
 	return max
+}
+
+func visitGroups(groups []Group, visit func(string)) {
+	for _, group := range groups {
+		if group.Code == groupHandle {
+			visit(group.Value)
+		}
+	}
 }
 
 func countMissingHandles(doc *Document) int {

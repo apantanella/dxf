@@ -206,13 +206,19 @@ func (t *Tables) EnsureLayer(name string, color int, linetype string) {
 	})
 }
 
-// EnsureLinetype adds a solid linetype record when it is not defined yet.
+// EnsureLinetype adds a linetype record when it is not defined yet. The names
+// of the standard AutoCAD linetypes (DASHED, CENTER, HIDDEN, ...) get their
+// usual pattern; any other name gets a solid line.
 func (t *Tables) EnsureLinetype(name string) {
 	if name == "" {
 		name = "CONTINUOUS"
 	}
 	table := t.Ensure("LTYPE")
 	if hasRecordName(table, "LTYPE", name) {
+		return
+	}
+	if def, ok := standardLinetypes[strings.ToUpper(strings.TrimSpace(name))]; ok {
+		table.Records = append(table.Records, linetypeRecord(strings.ToUpper(strings.TrimSpace(name)), def))
 		return
 	}
 	table.Records = append(table.Records, Record{

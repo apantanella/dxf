@@ -37,30 +37,54 @@ type groupReader struct {
 	r      *bufio.Reader
 	limits Limits
 
-	line        int
-	lastLine    int
-	pending     *Group
-	pendingLine int
+	line          int
+	lastLine      int
+	nonASCII      int // group values with bytes >= 0x80
+	firstNonASCII int
+	pending       *Group
+	pendingLine   int
 }
 
 func newGroupReader(r io.Reader, limits Limits) *groupReader {
 	return &groupReader{r: bufio.NewReader(r), limits: limits}
 }
 
+// readLine reads one line without its end-of-line marker. A line longer than
+// the value limit is rejected as soon as the limit is crossed, so that a hostile
+// file without line breaks cannot make the reader buffer it whole.
 func (g *groupReader) readLine() (string, error) {
-	s, err := g.r.ReadString('\n')
-	if err != nil {
-		if errors.Is(err, io.EOF) {
-			if s == "" {
+	limit := g.limits.MaxValueBytes
+	if limit < 64 {
+		limit = 64
+	}
+	var line []byte
+	for {
+		fragment, err := g.r.ReadSlice('\n')
+		if err == nil && line == nil && len(fragment) <= limit+2 {
+			// Common case: the whole line is in the buffer, copy it once.
+			g.line++
+			return trimEOL(string(fragment)), nil
+		}
+		line = append(line, fragment...)
+		if len(line) > limit+2 { // room for CRLF
+			return "", &LimitError{Kind: "value", Limit: g.limits.MaxValueBytes, Line: g.line + 1}
+		}
+		switch {
+		case err == nil:
+			g.line++
+			return trimEOL(string(line)), nil
+		case errors.Is(err, bufio.ErrBufferFull):
+			continue
+		case errors.Is(err, io.EOF):
+			if len(line) == 0 {
 				return "", io.EOF
 			}
 			g.line++
-			return trimEOL(s), nil
+			return trimEOL(string(line)), nil
+		default:
+			return "", err
 		}
-		return "", err
 	}
-	g.line++
-	return trimEOL(s), nil
 }
 
 func trimEOL(s string) string {
@@ -95,8 +119,23 @@ func (g *groupReader) read() (Group, int, error) {
 		if len(value) > g.limits.MaxValueBytes {
 			return Group{}, line, &LimitError{Kind: "value", Limit: g.limits.MaxValueBytes, Line: line}
 		}
+		if hasNonASCII(value) {
+			if g.nonASCII == 0 {
+				g.firstNonASCII = line
+			}
+			g.nonASCII++
+		}
 		return Group{Code: code, Value: value}, line, nil
 	}
+}
+
+func hasNonASCII(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] >= 0x80 {
+			return true
+		}
+	}
+	return false
 }
 
 // next returns the next group. It returns io.EOF at a clean end of stream.

@@ -33,8 +33,9 @@ no CAD application applies implicit conversions.
 ## Text encoding
 
 - R12 is not UTF-8: text depends on the system code page.
-- The first release handles ASCII text and records a diagnostic when it
-  encounters non-ASCII bytes.
+- The first release handles ASCII text. When a file contains non-ASCII bytes,
+  `Decode` records one warning that gives the number of values and the line of
+  the first one; the bytes are preserved unchanged.
 - `$DWGCODEPAGE` is preserved without automatic conversion.
 - Full code page support requires a dedicated ADR.
 

@@ -82,6 +82,7 @@ Status: in progress.
 - [x] Fuzz tests on arbitrary input.
 - [x] Benchmarks on a document with 100,000 entities.
 - [x] OCS → WCS conversion in the structural import.
+- [x] Integration tests on the file system path (`-tags=integration`).
 - [ ] Manual verification with LibreCAD, QCAD and an Autodesk product.
 - [ ] Documentation of the observed differences and of the interoperability
       matrix.

@@ -47,6 +47,8 @@ versioning follows [Semantic Versioning](https://semver.org/).
   round-trip stability and invalid input.
 - Benchmarks on a document with 100,000 `LINE` entities: decode ~189 ms
   (28.1 MB/s), encode ~79 ms, round-trip ~271 ms.
+- Integration tests behind the `integration` build tag, covering the file system
+  path and the fixtures on disk, run by CI.
 
 ### Changed
 
